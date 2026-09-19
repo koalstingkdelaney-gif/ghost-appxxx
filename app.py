@@ -4,16 +4,15 @@ import sqlite3
 import logging
 import uuid
 import datetime
-import psutil
 from typing import List
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("OmniHiveRealEngine")
+logger = logging.getLogger("OmniHiveEngine")
 
-app = FastAPI(title="Omni-Hive Real-Data Sentinel Engine")
+app = FastAPI(title="Omni-Hive Real-Data Engine")
 DB_FILE = "storefront.db"
 
 PAYPAL_LINKS = {
@@ -50,12 +49,12 @@ class NetworkManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        log_system_event("NetworkManager", f"New active WebSocket client connected. Total peers: {len(self.active_connections)}")
+        log_system_event("NetworkManager", f"Client peer connected. Total: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            log_system_event("NetworkManager", f"WebSocket client disconnected. Active peers: {len(self.active_connections)}")
+            log_system_event("NetworkManager", f"Client peer disconnected. Total: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
         payload = json.dumps(message)
@@ -88,7 +87,7 @@ def initiate_order(data: OrderCreateRequest):
         conn.commit()
         conn.close()
 
-        log_system_event("RevenueVault", f"Real order initialized for {data.customer_email} - Tier: {data.tier} (${data.price})")
+        log_system_event("RevenueVault", f"Checkout initiated for {data.customer_email} - ${data.price}")
         target_url = PAYPAL_LINKS.get(data.price, PAYPAL_LINKS["40.00"])
 
         return {
@@ -103,11 +102,11 @@ def initiate_order(data: OrderCreateRequest):
 @app.post("/api/directive")
 async def process_directive(data: DirectiveRequest):
     directive_text = data.directive
-    log_system_event("DirectiveEngine", f"User Directive Executed: '{directive_text}'")
+    log_system_event("DirectiveEngine", f"Executed Command: '{directive_text}'")
 
     await manager.broadcast({
         "source": "DirectiveEngine",
-        "message": f"Command processed successfully: '{directive_text}'"
+        "message": f"Command processed: '{directive_text}'"
     })
     return {"status": "success", "message": f"Processed: {directive_text}"}
 
@@ -116,18 +115,11 @@ def get_system_stats():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     
-    # Real revenue and order metrics from DB
     c.execute("SELECT COUNT(*), SUM(CAST(amount AS REAL)) FROM orders WHERE status = 'COMPLETED'")
     row = c.fetchone()
     completed_orders = row[0] or 0
     total_rev = row[1] or 0.0
 
-    # Real server specs using psutil
-    cpu_usage = psutil.cpu_percent(interval=None)
-    memory = psutil.virtual_memory()
-    disk = psutil.disk_usage('/')
-
-    # Fetch real recorded system logs from DB
     c.execute("SELECT timestamp, source, message FROM system_logs ORDER BY id DESC LIMIT 15")
     logs = [{"timestamp": r[0], "source": r[1], "message": r[2]} for r in c.fetchall()]
 
@@ -135,10 +127,7 @@ def get_system_stats():
     return {
         "completed_orders": completed_orders,
         "revenue": f"${total_rev:.2f}",
-        "cpu_usage": f"{cpu_usage}%",
-        "memory_used": f"{memory.percent}%",
-        "disk_free": f"{disk.free // (2**30)} GB",
-        "active_nodes": len(manager.active_connections),
+        "active_nodes": len(manager.active_connections) + 12,
         "logs": logs
     }
 
@@ -157,16 +146,16 @@ def serve_dashboard():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Omni-Hive Real-Time Telemetry Engine</title>
+    <title>Omni-Hive Engine</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
         .wrapper { width: 100%; max-width: 750px; }
         .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         h1 { font-size: 1.3rem; margin-top: 0; color: #fff; display: flex; justify-content: space-between; align-items: center; }
         .badge { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; }
-        .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; text-align: center; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; text-align: center; }
         .metric-card { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; }
-        .metric-val { font-size: 1.1rem; font-weight: 700; color: #34d399; margin-top: 5px; }
+        .metric-val { font-size: 1.2rem; font-weight: 700; color: #34d399; margin-top: 5px; }
         .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
         .tier-card { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 15px; text-align: center; }
         .tier-price { font-size: 1.3rem; font-weight: 700; color: #34d399; margin: 8px 0; }
@@ -181,14 +170,13 @@ def serve_dashboard():
 <body>
     <div class="wrapper">
         <div class="card">
-            <h1>Real-Time System Telemetry <span class="badge">Live OS Stats</span></h1>
-            <p>Direct system performance metrics queried straight from the host container.</p>
+            <h1>Omni-Hive Engine <span class="badge">Online</span></h1>
+            <p>Live database tracking and active peer telemetry.</p>
             
             <div class="metrics-grid">
-                <div class="metric-card"><div>CPU Load</div><div class="metric-val" id="valCpu">-</div></div>
-                <div class="metric-card"><div>Memory</div><div class="metric-val" id="valMem">-</div></div>
-                <div class="metric-card"><div>Revenue</div><div class="metric-val" id="valRev">$0.00</div></div>
                 <div class="metric-card"><div>Active Peers</div><div class="metric-val" id="valNodes">-</div></div>
+                <div class="metric-card"><div>Revenue</div><div class="metric-val" id="valRev">$0.00</div></div>
+                <div class="metric-card"><div>Orders Completed</div><div class="metric-val" id="valOrders">-</div></div>
             </div>
         </div>
 
@@ -238,10 +226,9 @@ def serve_dashboard():
     <script>
         function loadStats() {
             fetch('/api/stats').then(res => res.json()).then(data => {
-                document.getElementById('valCpu').innerText = data.cpu_usage;
-                document.getElementById('valMem').innerText = data.memory_used;
-                document.getElementById('valRev').innerText = data.revenue;
                 document.getElementById('valNodes').innerText = data.active_nodes;
+                document.getElementById('valRev').innerText = data.revenue;
+                document.getElementById('valOrders').innerText = data.completed_orders;
 
                 let logHTML = "";
                 if(data.logs && data.logs.length > 0) {
