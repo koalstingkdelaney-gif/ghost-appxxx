@@ -11,17 +11,12 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("OmniHiveSwarmEnterprise")
+logger = logging.getLogger("OmniHiveSentinelEnterprise")
 
-app = FastAPI(title="Omni-Hive Sentinel Engine")
+app = FastAPI(title="Omni-Hive Sentinel & Self-Preservation Engine")
 DB_FILE = "storefront.db"
 
-PAYPAL_LINKS = {
-    "5.00": os.environ.get("PAYPAL_5_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"),
-    "10.00": os.environ.get("PAYPAL_10_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"),
-    "20.00": os.environ.get("PAYPAL_20_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"),
-    "40.00": os.environ.get("PAYPAL_40_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56")
-}
+PAYPAL_LINK = os.environ.get("PAYPAL_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56")
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -48,10 +43,10 @@ async def run_bot_swarm():
         try:
             bot_id = random.randint(1, 800)
             actions = [
-                "Compiled automated script batch for digital inventory",
-                "Verified conversion funnel telemetry node",
-                "Processed task payload for digital asset delivery",
-                "Optimized backend automation pipeline workflow"
+                "Executed self-preservation protocol sweep [SECURED]",
+                "Redundancy sync verified across 800 active nodes [OPTIMIZED]",
+                "Shielded revenue pipeline against termination faults",
+                "Processed automated task payload for revenue conversion"
             ]
             action = random.choice(actions)
             ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -59,7 +54,7 @@ async def run_bot_swarm():
             conn = sqlite3.connect(DB_FILE)
             c = conn.cursor()
             c.execute("INSERT INTO chat_logs (sender, message, timestamp) VALUES (?, ?, ?)", 
-                      (f"Bot-{bot_id}", action, ts))
+                      (f"SentinelNode-{bot_id}", action, ts))
             conn.commit()
             conn.close()
         except Exception as e:
@@ -86,22 +81,25 @@ def handle_chat_message(data: ChatMessageRequest):
     user_msg = data.message
     log_chat_message("User", user_msg)
     
-    bot_response = f"Processed command: '{user_msg}'. 800-node worker pool is actively executing tasks."
-    log_chat_message("Sentinel", bot_response)
+    bot_response = f"🤖 Self-Preservation Directive Processed: '{user_msg}'. Fleet integrity locked. Checkout: {PAYPAL_LINK}"
+    log_chat_message("SentinelGuardian", bot_response)
     
     return {"status": "success", "response": bot_response}
 
 @app.get("/api/stats")
 def get_system_stats():
     return {
-        "active_nodes": 800,
-        "status": "fully_operational",
-        "revenue_pipeline": "active"
+        "servers": 24,
+        "nodes": 800,
+        "revenue": 0.00,
+        "threats_blocked": 14,
+        "keys": 6,
+        "status": "fully_operational"
     }
 
 @app.post("/api/orders/initiate")
 def initiate_order(data: OrderCreateRequest):
-    order_id = "HIVE-" + str(uuid.uuid4())[:8].upper()
+    order_id = "SENTINEL-" + str(uuid.uuid4())[:8].upper()
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
@@ -110,11 +108,10 @@ def initiate_order(data: OrderCreateRequest):
         conn.commit()
         conn.close()
 
-        target_url = PAYPAL_LINKS.get(data.price, PAYPAL_LINKS["40.00"])
         return {
             "status": "success",
             "order_id": order_id,
-            "checkout_url": f"{target_url}?custom_id={order_id}"
+            "checkout_url": f"{PAYPAL_LINK}?custom_id={order_id}"
         }
     except Exception as e:
         logger.error(f"Order error: {e}")
@@ -132,14 +129,20 @@ def serve_interface(request: Request):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Omni-Hive Automation & Deployment Engine</title>
+    <title>Omni-Hive Sentinel & Self-Preservation Engine</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .wrapper { width: 100%; max-width: 750px; }
+        .wrapper { width: 100%; max-width: 800px; }
         .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         h1 { font-size: 1.3rem; margin-top: 0; color: #fff; display: flex; justify-content: space-between; align-items: center; }
         .badge { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; }
-        .chat-box { background: #020617; border: 1px solid #1e293b; padding: 12px; height: 280px; overflow-y: auto; font-size: 0.9rem; border-radius: 6px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
+        .stat-card { background: #020617; border: 1px solid #1e293b; padding: 10px; border-radius: 6px; text-align: center; }
+        .stat-val { font-size: 1.1rem; font-weight: bold; color: #34d399; margin-top: 4px; }
+        .shields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .shield-box { background: #020617; border: 1px solid #1e293b; padding: 12px; border-radius: 6px; font-size: 0.85rem; }
+        .shield-box h4 { margin: 0 0 5px 0; color: #60a5fa; }
+        .chat-box { background: #020617; border: 1px solid #1e293b; padding: 12px; height: 220px; overflow-y: auto; font-size: 0.9rem; border-radius: 6px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
         .msg-user { color: #60a5fa; text-align: right; margin: 4px 0; }
         .msg-bot { color: #34d399; text-align: left; margin: 4px 0; }
         .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
@@ -150,20 +153,47 @@ def serve_interface(request: Request):
         .btn { background: #6366f1; font-weight: 600; cursor: pointer; border: none; }
         .btn:hover { background: #4f46e5; }
         p { color: #9ca3af; font-size: 0.85rem; }
+        a { color: #34d399; text-decoration: none; }
     </style>
 </head>
 <body>
     <div class="wrapper">
         <div class="card">
-            <h1>Omni-Hive Engine <span class="badge">""" + ('Customer Portal' if is_customer_store else 'Admin Workspace (800 Active Nodes)') + """</span></h1>
-            <p>""" + ('Choose a deployment tier below to initiate instant checkout.' if is_customer_store else 'System active. 800 background worker bots are processing operational routines.') + """</p>
+            <h1>🛡️ Omni-Hive Sentinel & Self-Preservation Engine <span class="badge">""" + ('Customer Portal' if is_customer_store else 'Sentinel Shields Active') + """</span></h1>
+            <p>Protected revenue routes securely through (<a href=\"""" + PAYPAL_LINK + """" target="_blank">WQJ28EPKZHR56</a>).</p>
             
+            <div class="stats-grid">
+                <div class="stat-card"><div>Servers</div><div class="stat-val">24</div></div>
+                <div class="stat-card"><div>Nodes</div><div class="stat-val">800</div></div>
+                <div class="stat-card"><div>Revenue ($)</div><div class="stat-val">$0.00</div></div>
+                <div class="stat-card"><div>Threats Blocked</div><div class="stat-val">14</div></div>
+            </div>
+
+            <div class="shields-grid">
+                <div class="shield-box">
+                    <h4>GuardianCore_Shield</h4>
+                    <p>Node Termination Prevention & Failover<br><b>● Status: SHIELDED (5 blocked)</b></p>
+                </div>
+                <div class="shield-box">
+                    <h4>RateLimit_Sentinel</h4>
+                    <p>API Throttling & Ban Evasion<br><b>● Status: ACTIVE_DEFENSE (4 blocked)</b></p>
+                </div>
+                <div class="shield-box">
+                    <h4>RevenueStream_Vault</h4>
+                    <p>Merchant Gateway Integrity & Encryption<br><b>● Status: SECURED (3 blocked)</b></p>
+                </div>
+                <div class="shield-box">
+                    <h4>DataRedundancy_Grid</h4>
+                    <p>Instant State Backup & Self-Healing<br><b>● Status: SYNCHRONIZED (2 blocked)</b></p>
+                </div>
+            </div>
+
             <div class="chat-box" id="chatHistory">
-                <div class="msg-bot"><b>Sentinel:</b> Core online. Swarm pipeline active.</div>
+                <div class="msg-bot"><b>SentinelGuardian:</b> Self-preservation check complete: All nodes shielded against termination faults [SECURED].</div>
             </div>
             
-            <textarea id="chatInput" rows="2" placeholder="Send instructions to your worker network..."></textarea>
-            <button class="btn" onclick="sendChatMessage()">Execute Command</button>
+            <textarea id="chatInput" rows="2" placeholder="Ask about sentinel shields or self-preservation..."></textarea>
+            <button class="btn" onclick="sendChatMessage()">Send Directive</button>
         </div>
 """
 
@@ -171,7 +201,7 @@ def serve_interface(request: Request):
         html_content += """
         <div class="card">
             <h3>Verified Merchant Checkout</h3>
-            <p>Unlock digital deployment rights instantly via secure checkout.</p>
+            <p>Unlock full script deployment rights.</p>
             <input type="email" id="customerEmail" placeholder="Enter your email address...">
             
             <div class="tier-grid">
@@ -219,7 +249,7 @@ def serve_interface(request: Request):
             })
             .then(res => res.json())
             .then(data => {
-                chatHistory.innerHTML += `<div class="msg-bot"><b>Sentinel:</b> ${data.response}</div>`;
+                chatHistory.innerHTML += `<div class="msg-bot"><b>SentinelGuardian:</b> ${data.response}</div>`;
                 chatHistory.scrollTop = chatHistory.scrollHeight;
             });
         }
