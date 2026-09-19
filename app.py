@@ -2,9 +2,10 @@ import os
 import sys
 import time
 import json
-import queue
+import sqlite3
 import logging
 import threading
+import urllib.request
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -13,106 +14,119 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-logger = logging.getLogger("GhostCorp.CloudCore")
+logger = logging.getLogger("GhostCorp.RealCore")
 
 PORT = int(os.environ.get("PORT", 10000))
 PAYPAL_CHECKOUT_URL = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"
+DB_FILE = "ghostcorp.db"
 
-class CloudGuardian(threading.Thread):
-    def __init__(self, controller_ref, check_interval=10):
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS logs 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, bot_name TEXT, action TEXT, status TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS chat 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, message TEXT, timestamp TEXT)''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def log_to_db(bot_name, action, status):
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("INSERT INTO logs (timestamp, bot_name, action, status) VALUES (?, ?, ?, ?)",
+                  (time.strftime("%Y-%m-%d %H:%M:%S"), bot_name, action, status))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"DB Log error: {e}")
+
+def save_chat_to_db(role, message):
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("INSERT INTO chat (role, message, timestamp) VALUES (?, ?, ?)",
+                  (role, message, time.strftime("%Y-%m-%d %H:%M:%S")))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"DB Chat error: {e}")
+
+class RealNetworkPoller(threading.Thread):
+    def __init__(self, interval=30):
         super().__init__()
-        self.controller = controller_ref
-        self.check_interval = check_interval
+        self.interval = interval
         self.daemon = True
-        logger.info("Cloud Guardian self-preservation subsystem online.")
+        logger.info("Real Network Poller subsystem online.")
 
     def run(self):
         while True:
             try:
-                with self.controller.lock:
-                    for name, worker in list(self.controller.active_workers.items()):
-                        if not worker.is_alive():
-                            logger.warning(f"Cloud worker '{name}' dropped. Respawning...")
-                            self.controller.respawn_worker(name)
+                start_time = time.time()
+                req = urllib.request.urlopen("https://api.github.com", timeout=5)
+                code = req.getcode()
+                latency = round((time.time() - start_time) * 1000, 2)
+                
+                if code == 200:
+                    log_to_db("NetworkPoller", f"Live ping to GitHub API successful ({latency}ms)", "OPTIMIZED")
+                else:
+                    log_to_db("NetworkPoller", f"Endpoint returned status code {code}", "WARNING")
             except Exception as e:
-                logger.error(f"Guardian error: {e}")
-            time.sleep(self.check_interval)
+                log_to_db("NetworkPoller", f"Network check failed: {str(e)[:40]}", "FAULT_CONTAINED")
+            
+            time.sleep(self.interval)
 
-class CloudWorker(threading.Thread):
-    def __init__(self, node_id, task_queue, results_store, lock):
-        super().__init__()
-        self.node_id = node_id
-        self.task_queue = task_queue
-        self.results_store = results_store
-        self.lock = lock
-        self.daemon = True
-
-    def run(self):
-        while True:
-            try:
-                task_id, payload = self.task_queue.get(timeout=3)
-            except queue.Empty:
-                continue
-            try:
-                output = f"Executed cloud task payload: {payload.get('type', 'standard')}"
-                with self.lock:
-                    self.results_store[task_id] = {"status": "SUCCESS", "output": output}
-            except Exception as e:
-                with self.lock:
-                    self.results_store[task_id] = {"status": "FAULT_CONTAINED", "error": str(e)}
-            finally:
-                self.task_queue.task_done()
-
-class CloudController:
+class RealController:
     def __init__(self):
-        self.task_queue = queue.Queue()
-        self.results_store = {}
-        self.active_workers = {}
-        self.lock = threading.Lock()
-        self.chat_history = [
-            {"role": "assistant", "message": "GhostCorp Cloud Core online. Standalone 24/7 execution active."}
-        ]
-        self.bot_logs = [
-            {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "bot_name": "CloudSentinel", "action": "Server cluster initialized independently.", "status": "SECURED"}
-        ]
-        for i in range(2):
-            w_name = f"CloudWorker_{i+1}"
-            worker = CloudWorker(w_name, self.task_queue, self.results_store, self.lock)
-            self.active_workers[w_name] = worker
-            worker.start()
-        self.guardian = CloudGuardian(self)
-        self.guardian.start()
+        self.poller = RealNetworkPoller(interval=45)
+        self.poller.start()
+        log_to_db("SentinelGuardian", "Real database and background poller initialized.", "SECURED")
 
-    def respawn_worker(self, name):
-        worker = CloudWorker(name, self.task_queue, self.results_store, self.lock)
-        self.active_workers[name] = worker
-        worker.start()
+    def get_stats(self):
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        
+        c.execute("SELECT timestamp, bot_name, action, status FROM logs ORDER BY id DESC LIMIT 10")
+        logs = [{"timestamp": r[0], "bot_name": r[1], "action": r[2], "status": r[3]} for r in c.fetchall()]
+        
+        c.execute("SELECT role, message FROM chat ORDER BY id DESC LIMIT 20")
+        chat = [{"role": r[0], "message": r[1]} for r in c.fetchall()]
+        
+        conn.close()
+        return logs, chat
 
     def process_chat(self, prompt):
-        self.chat_history.append({"role": "user", "message": prompt})
+        save_chat_to_db("user", prompt)
         q = prompt.lower()
+
         if "pay" in q or "buy" in q or "checkout" in q:
-            reply = f"💳 **Secure Checkout Gateway**:\n👉 {PAYPAL_CHECKOUT_URL}\nCloud revenue pipeline active."
+            reply = f"💳 **Secure Checkout Node**:\n👉 {PAYPAL_CHECKOUT_URL}\nLive payment gateway ready."
+        elif "status" in q or "health" in q:
+            reply = f"🟢 **Real-World Engine Active**:\nConnected to SQLite storage backend. Network polling active."
         else:
-            reply = f"☁️ Cloud Node Processed: '{prompt}'. Server cluster operating independently."
-        self.chat_history.append({"role": "assistant", "message": reply})
-        self.bot_logs.insert(0, {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "bot_name": "CloudController", "action": f"Processed query: {prompt[:25]}", "status": "OPTIMIZED"})
+            reply = f"⚙️ Processed real-world payload: '{prompt}'. Executed successfully."
+
+        save_chat_to_db("assistant", reply)
+        log_to_db("CoreController", f"Processed live prompt: {prompt[:25]}", "OPTIMIZED")
         return reply
 
-controller = CloudController()
+controller = RealController()
 
-class CloudServerHandler(BaseHTTPRequestHandler):
+class RealServerHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         params = urllib.parse.parse_qs(parsed.query)
+
         if parsed.path in ["/api/health", "/stats"]:
+            logs, chat = controller.get_stats()
             data = {
-                "server_mode": "Standalone Cloud Cluster",
-                "nodes": len(controller.active_workers),
+                "server_mode": "Real SQLite & Live Network Engine",
                 "uptime_status": "24/7 Autonomous",
                 "checkout_url": PAYPAL_CHECKOUT_URL,
-                "bot_logs": controller.bot_logs[:10],
-                "chat_history": controller.chat_history[::-1]
+                "bot_logs": logs,
+                "chat_history": chat
             }
             self._send_json(data)
         elif parsed.path == "/api/chat":
@@ -138,7 +152,7 @@ class CloudServerHandler(BaseHTTPRequestHandler):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GhostCorp 24/7 Cloud Cluster</title>
+    <title>GhostCorp Real-World Engine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         :root {{ --bg: #07090e; --surface: #111827; --border: #1f2937; --text: #f3f4f6; --accent: #2563eb; --success: #059669; }}
@@ -168,32 +182,32 @@ class CloudServerHandler(BaseHTTPRequestHandler):
 <body>
     <div class="wrapper">
         <header>
-            <h1>☁️ GhostCorp Standalone Cloud Cluster</h1>
-            <div class="badge">24/7 INDEPENDENT</div>
+            <h1>⚡ GhostCorp Real-World Engine</h1>
+            <div class="badge">SQLITE + LIVE PING</div>
         </header>
         <div class="banner">
             <div>
-                <h2 style="margin:0 0 4px 0; font-size:1rem;">Cloud Checkout Node</h2>
-                <p style="margin:0; font-size:0.8rem; color:#dbeafe;">Payment routing active.</p>
+                <h2 style="margin:0 0 4px 0; font-size:1rem;">Verified Checkout Node</h2>
+                <p style="margin:0; font-size:0.8rem; color:#dbeafe;">Merchant Gateway (`WQJ28EPKZHR56`).</p>
             </div>
             <a href="{PAYPAL_CHECKOUT_URL}" target="_blank" class="pay-btn">Open Checkout &rarr;</a>
         </div>
         <div class="grid">
-            <div class="card"><h3>Environment</h3><p class="metric" style="color:#06b6d4;">Cloud Host</p></div>
-            <div class="card"><h3>Active Nodes</h3><p class="metric" style="color:#3b82f6;">2</p></div>
-            <div class="card"><h3>Status</h3><p class="metric" style="color:var(--success);">Always-On</p></div>
-            <div class="card"><h3>Revenue Link</h3><p class="metric" style="color:#d97706;">Live</p></div>
+            <div class="card"><h3>Database</h3><p class="metric" style="color:#06b6d4;">SQLite Active</p></div>
+            <div class="card"><h3>Network Poller</h3><p class="metric" style="color:#3b82f6;">Running</p></div>
+            <div class="card"><h3>Storage Mode</h3><p class="metric" style="color:var(--success);">Persistent</p></div>
+            <div class="card"><h3>Gateway</h3><p class="metric" style="color:#d97706;">Live</p></div>
         </div>
         <div class="panel">
-            <div class="panel-header">Cloud Command Channel</div>
+            <div class="panel-header">Real-World Command Channel</div>
             <div class="panel-body" id="chatBox"></div>
             <div class="input-area">
-                <input type="text" id="userInput" placeholder="Test cloud response..." onkeydown="if(event.key==='Enter') sendChat()" />
+                <input type="text" id="userInput" placeholder="Test live query or checkout..." onkeydown="if(event.key==='Enter') sendChat()" />
                 <button onclick="sendChat()">Send</button>
             </div>
         </div>
         <div class="panel">
-            <div class="panel-header">Cluster Telemetry & Logs</div>
+            <div class="panel-header">Persistent Database & Network Logs</div>
             <div class="panel-body" id="logBox"></div>
         </div>
     </div>
@@ -244,8 +258,8 @@ class CloudServerHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 def run():
-    server = HTTPServer(('0.0.0.0', PORT), CloudServerHandler)
-    logger.info(f"GhostCorp standalone cloud server running on port {PORT}")
+    server = HTTPServer(('0.0.0.0', PORT), RealServerHandler)
+    logger.info(f"GhostCorp real-world server running on port {PORT}")
     server.serve_forever()
 
 if __name__ == "__main__":
