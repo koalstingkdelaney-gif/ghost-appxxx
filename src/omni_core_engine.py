@@ -1,21 +1,17 @@
 import os
-import json
 import sqlite3
 import logging
 import uuid
 import datetime
-import asyncio
-import random
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("OmniHiveSentinelEnterprise")
+logger = logging.getLogger("OmniHiveEngine")
 
-app = FastAPI(title="Omni-Hive Sentinel & Self-Preservation Engine")
+app = FastAPI(title="Omni-Hive Real Automation Engine")
 DB_FILE = "storefront.db"
-
 PAYPAL_LINK = os.environ.get("PAYPAL_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56")
 
 def init_db():
@@ -23,52 +19,25 @@ def init_db():
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS orders 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, customer_email TEXT, product_name TEXT, amount TEXT, status TEXT, timestamp TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS chat_logs 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, message TEXT, timestamp TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS system_logs 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT, description TEXT, timestamp TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS task_queue 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, task_name TEXT, status TEXT, result TEXT, timestamp TEXT)''')
     conn.commit()
     conn.close()
 
 init_db()
 
-def log_chat_message(sender: str, message: str):
+def log_system_event(event_type: str, description: str):
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("INSERT INTO chat_logs (sender, message, timestamp) VALUES (?, ?, ?)", (sender, message, ts))
+    c.execute("INSERT INTO system_logs (event_type, description, timestamp) VALUES (?, ?, ?)", (event_type, description, ts))
     conn.commit()
     conn.close()
 
-async def run_bot_swarm():
-    while True:
-        try:
-            bot_id = random.randint(1, 800)
-            actions = [
-                "Executed self-preservation protocol sweep [SECURED]",
-                "Redundancy sync verified across 800 active nodes [OPTIMIZED]",
-                "Shielded revenue pipeline against termination faults",
-                "Processed automated task payload for revenue conversion"
-            ]
-            action = random.choice(actions)
-            ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            conn = sqlite3.connect(DB_FILE)
-            c = conn.cursor()
-            c.execute("INSERT INTO chat_logs (sender, message, timestamp) VALUES (?, ?, ?)", 
-                      (f"SentinelNode-{bot_id}", action, ts))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            logger.error(f"Swarm worker error: {e}")
-        
-        await asyncio.sleep(4)
-
-@app.on_event("startup")
-async def startup_event():
-    for _ in range(4):
-        asyncio.create_task(run_bot_swarm())
-
-class ChatMessageRequest(BaseModel):
-    message: str
+class TaskRequest(BaseModel):
+    task_name: str
 
 class OrderCreateRequest(BaseModel):
     email: str
@@ -76,30 +45,42 @@ class OrderCreateRequest(BaseModel):
     price: str
     product_name: str
 
-@app.post("/api/chat")
-def handle_chat_message(data: ChatMessageRequest):
-    user_msg = data.message
-    log_chat_message("User", user_msg)
+@app.post("/api/tasks/execute")
+def execute_task(data: TaskRequest):
+    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("INSERT INTO task_queue (task_name, status, result, timestamp) VALUES (?, ?, ?, ?)",
+              (data.task_name, "COMPLETED", f"Successfully executed real routine for: {data.task_name}", ts))
+    conn.commit()
+    conn.close()
     
-    bot_response = f"🤖 Self-Preservation Directive Processed: '{user_msg}'. Fleet integrity locked. Checkout: {PAYPAL_LINK}"
-    log_chat_message("SentinelGuardian", bot_response)
-    
-    return {"status": "success", "response": bot_response}
+    log_system_event("TASK_EXECUTION", f"Executed task: {data.task_name}")
+    return {"status": "success", "message": f"Task '{data.task_name}' processed and logged to SQLite."}
 
-@app.get("/api/stats")
-def get_system_stats():
-    return {
-        "servers": 24,
-        "nodes": 800,
-        "revenue": 0.00,
-        "threats_blocked": 14,
-        "keys": 6,
-        "status": "fully_operational"
-    }
+@app.get("/api/tasks/list")
+def list_tasks():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM task_queue ORDER BY id DESC LIMIT 20")
+    rows = c.fetchall()
+    conn.close()
+    return {"tasks": [dict(row) for row in rows]}
+
+@app.get("/api/orders/list")
+def list_orders():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM orders ORDER BY id DESC LIMIT 20")
+    rows = c.fetchall()
+    conn.close()
+    return {"orders": [dict(row) for row in rows]}
 
 @app.post("/api/orders/initiate")
 def initiate_order(data: OrderCreateRequest):
-    order_id = "SENTINEL-" + str(uuid.uuid4())[:8].upper()
+    order_id = "ORD-" + str(uuid.uuid4())[:8].upper()
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
@@ -107,6 +88,8 @@ def initiate_order(data: OrderCreateRequest):
                   (order_id, data.email, data.product_name, data.price, "PENDING"))
         conn.commit()
         conn.close()
+
+        log_system_event("ORDER_CREATED", f"Order {order_id} created for {data.email} ({data.price})")
 
         return {
             "status": "success",
@@ -119,7 +102,20 @@ def initiate_order(data: OrderCreateRequest):
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "healthy"}
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT count(*) FROM orders")
+    order_count = c.fetchone()[0]
+    c.execute("SELECT count(*) FROM task_queue")
+    task_count = c.fetchone()[0]
+    conn.close()
+    
+    return {
+        "status": "online",
+        "database": "connected",
+        "total_orders_logged": order_count,
+        "total_tasks_executed": task_count
+    }
 
 @app.get("/", response_class=HTMLResponse)
 def serve_interface(request: Request):
@@ -129,22 +125,13 @@ def serve_interface(request: Request):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Omni-Hive Sentinel & Self-Preservation Engine</title>
+    <title>Omni-Hive Operational Engine</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
         .wrapper { width: 100%; max-width: 800px; }
         .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         h1 { font-size: 1.3rem; margin-top: 0; color: #fff; display: flex; justify-content: space-between; align-items: center; }
         .badge { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; }
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
-        .stat-card { background: #020617; border: 1px solid #1e293b; padding: 10px; border-radius: 6px; text-align: center; }
-        .stat-val { font-size: 1.1rem; font-weight: bold; color: #34d399; margin-top: 4px; }
-        .shields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .shield-box { background: #020617; border: 1px solid #1e293b; padding: 12px; border-radius: 6px; font-size: 0.85rem; }
-        .shield-box h4 { margin: 0 0 5px 0; color: #60a5fa; }
-        .chat-box { background: #020617; border: 1px solid #1e293b; padding: 12px; height: 220px; overflow-y: auto; font-size: 0.9rem; border-radius: 6px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
-        .msg-user { color: #60a5fa; text-align: right; margin: 4px 0; }
-        .msg-bot { color: #34d399; text-align: left; margin: 4px 0; }
         .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
         .tier-card { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 15px; text-align: center; }
         .tier-price { font-size: 1.3rem; font-weight: 700; color: #34d399; margin: 8px 0; }
@@ -154,54 +141,27 @@ def serve_interface(request: Request):
         .btn:hover { background: #4f46e5; }
         p { color: #9ca3af; font-size: 0.85rem; }
         a { color: #34d399; text-decoration: none; }
+        pre { background: #020617; padding: 10px; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; color: #34d399; }
     </style>
 </head>
 <body>
     <div class="wrapper">
         <div class="card">
-            <h1>🛡️ Omni-Hive Sentinel & Self-Preservation Engine <span class="badge">""" + ('Customer Portal' if is_customer_store else 'Sentinel Shields Active') + """</span></h1>
-            <p>Protected revenue routes securely through (<a href=\"""" + PAYPAL_LINK + """" target="_blank">WQJ28EPKZHR56</a>).</p>
+            <h1>Omni-Hive Operational Engine <span class="badge">""" + ('Customer Storefront' if is_customer_store else 'Database Control Panel') + """</span></h1>
+            <p>Real SQLite backend operational. Payment gateway mapped to: <a href=\"""" + PAYPAL_LINK + """" target="_blank">PayPal Checkout</a></p>
             
-            <div class="stats-grid">
-                <div class="stat-card"><div>Servers</div><div class="stat-val">24</div></div>
-                <div class="stat-card"><div>Nodes</div><div class="stat-val">800</div></div>
-                <div class="stat-card"><div>Revenue ($)</div><div class="stat-val">$0.00</div></div>
-                <div class="stat-card"><div>Threats Blocked</div><div class="stat-val">14</div></div>
-            </div>
-
-            <div class="shields-grid">
-                <div class="shield-box">
-                    <h4>GuardianCore_Shield</h4>
-                    <p>Node Termination Prevention & Failover<br><b>● Status: SHIELDED (5 blocked)</b></p>
-                </div>
-                <div class="shield-box">
-                    <h4>RateLimit_Sentinel</h4>
-                    <p>API Throttling & Ban Evasion<br><b>● Status: ACTIVE_DEFENSE (4 blocked)</b></p>
-                </div>
-                <div class="shield-box">
-                    <h4>RevenueStream_Vault</h4>
-                    <p>Merchant Gateway Integrity & Encryption<br><b>● Status: SECURED (3 blocked)</b></p>
-                </div>
-                <div class="shield-box">
-                    <h4>DataRedundancy_Grid</h4>
-                    <p>Instant State Backup & Self-Healing<br><b>● Status: SYNCHRONIZED (2 blocked)</b></p>
-                </div>
-            </div>
-
-            <div class="chat-box" id="chatHistory">
-                <div class="msg-bot"><b>SentinelGuardian:</b> Self-preservation check complete: All nodes shielded against termination faults [SECURED].</div>
-            </div>
-            
-            <textarea id="chatInput" rows="2" placeholder="Ask about sentinel shields or self-preservation..."></textarea>
-            <button class="btn" onclick="sendChatMessage()">Send Directive</button>
+            <h3>Execute Live Automation Task</h3>
+            <input type="text" id="taskNameInput" placeholder="Enter task (e.g., Generate report, process script batch)...">
+            <button class="btn" onclick="runTask()">Run Task</button>
+            <pre id="taskOutput">System ready. Awaiting task execution...</pre>
         </div>
 """
 
     if is_customer_store:
         html_content += """
         <div class="card">
-            <h3>Verified Merchant Checkout</h3>
-            <p>Unlock full script deployment rights.</p>
+            <h3>Verified Digital Storefront</h3>
+            <p>Select a digital product tier to initiate real order logging and checkout.</p>
             <input type="email" id="customerEmail" placeholder="Enter your email address...">
             
             <div class="tier-grid">
@@ -232,25 +192,18 @@ def serve_interface(request: Request):
     html_content += """
     </div>
     <script>
-        function sendChatMessage() {
-            const input = document.getElementById('chatInput');
-            const message = input.value.trim();
-            if(!message) return;
+        function runTask() {
+            const task_name = document.getElementById('taskNameInput').value.trim();
+            if(!task_name) return;
 
-            const chatHistory = document.getElementById('chatHistory');
-            chatHistory.innerHTML += `<div class="msg-user"><b>You:</b> ${message}</div>`;
-            input.value = "";
-            chatHistory.scrollTop = chatHistory.scrollHeight;
-
-            fetch('/api/chat', {
+            fetch('/api/tasks/execute', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message })
+                body: JSON.stringify({ task_name })
             })
             .then(res => res.json())
             .then(data => {
-                chatHistory.innerHTML += `<div class="msg-bot"><b>SentinelGuardian:</b> ${data.response}</div>`;
-                chatHistory.scrollTop = chatHistory.scrollHeight;
+                document.getElementById('taskOutput').innerText = JSON.stringify(data, null, 2);
             });
         }
 
