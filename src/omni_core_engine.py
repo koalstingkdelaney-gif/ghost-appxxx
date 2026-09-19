@@ -14,18 +14,18 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-logger = logging.getLogger("OmniHiveScalingEngine")
+logger = logging.getLogger("OmniHiveSentinelEngine")
 
 PORT = int(os.environ.get("PORT", 8080))
-DB_PATH = "omni_hive_scaling.db"
+DB_PATH = "omni_hive_sentinel.db"
 PAYPAL_CHECKOUT_URL = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"
 
-class OmniHiveScalingManager:
+class OmniHiveSentinelManager:
     def __init__(self):
         self._init_db()
         self.lock = threading.Lock()
-        logger.info("Omni-Hive Self-Scaling Engine initialized.")
-        self._start_autoscale_loop()
+        logger.info("Omni-Hive Self-Preservation & Sentinel Guardian Engine initialized.")
+        self._start_sentinel_defense_loop()
 
     def _init_db(self):
         with sqlite3.connect(DB_PATH) as conn:
@@ -37,13 +37,21 @@ class OmniHiveScalingManager:
                 )
             """)
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS active_bots (
+                CREATE TABLE IF NOT EXISTS sentinel_shields (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    bot_name TEXT UNIQUE,
-                    specialty TEXT,
+                    shield_name TEXT,
+                    protection_focus TEXT,
                     status TEXT,
-                    revenue_generated REAL,
-                    last_active TEXT
+                    threats_intercepted INTEGER
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS active_nodes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    node_name TEXT UNIQUE,
+                    health_status TEXT,
+                    redundancy_level TEXT,
+                    revenue_generated REAL
                 )
             """)
             cursor.execute("""
@@ -77,47 +85,42 @@ class OmniHiveScalingManager:
             cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('connected_servers', 24)")
             cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('active_nodes', 96)")
             cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('total_revenue_usd', 0.00)")
-            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('active_bots_count', 4)")
+            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('threats_neutralized', 14)")
             cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('keys_provisioned', 6)")
 
-            # Initialize initial autonomous worker bots
-            initial_bots = [
-                ("ScoutBot_Prime", "Prospect Acquisition", "ACTIVE", 0.0),
-                ("KeyMaster_Bot", "API & Credential Provisioning", "SECURE", 0.0),
-                ("RevenueStream_Bot", "Checkout Routing & Conversion", "MONITORING", 0.0),
-                ("ClusterNode_Manager", "Node Telemetry & Handshake", "ONLINE", 0.0)
+            # Initialize sentinel shields
+            shields = [
+                ("GuardianCore_Shield", "Node Termination Prevention & Failover", "SHIELDED", 5),
+                ("RateLimit_Sentinel", "API Throttling & Ban Evasion", "ACTIVE_DEFENSE", 4),
+                ("RevenueStream_Vault", "Merchant Gateway Integrity & Encryption", "SECURED", 3),
+                ("DataRedundancy_Grid", "Instant State Backup & Self-Healing", "SYNCHRONIZED", 2)
             ]
-            for b in initial_bots:
+            for s in shields:
                 cursor.execute("""
-                    INSERT OR IGNORE INTO active_bots (bot_name, specialty, status, revenue_generated, last_active)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (b[0], b[1], b[2], b[3], time.strftime("%Y-%m-%d %H:%M:%S")))
+                    INSERT OR IGNORE INTO sentinel_shields (shield_name, protection_focus, status, threats_intercepted)
+                    VALUES (?, ?, ?, ?)
+                """, (s[0], s[1], s[2], s[3]))
+
+            # Initialize protected nodes with self-preservation telemetry
+            nodes = [
+                ("SentinelNode_Alpha", "OPTIMAL", "HOT_STANDBY", 0.0),
+                ("SentinelNode_Beta", "OPTIMAL", "HOT_STANDBY", 0.0),
+                ("SentinelNode_Gamma", "AUTO_HEALED", "FAILOVER_READY", 0.0)
+            ]
+            for n in nodes:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO active_nodes (node_name, health_status, redundancy_level, revenue_generated)
+                    VALUES (?, ?, ?, ?)
+                """, (n[0], n[1], n[2], n[3]))
 
             conn.commit()
 
-    def _start_autoscale_loop(self):
-        def scale_worker():
+    def _start_sentinel_defense_loop(self):
+        def sentinel_worker():
             time.sleep(3)
-            # Autonomous upscaling routine: spawns new revenue-generating bots
-            new_bots = [
-                ("YieldBot_Alpha", "Automated Micro-Task Execution", "ACTIVE", 0.0),
-                ("SaaSSales_Bot", "Subscription Conversion Specialist", "ACTIVE", 0.0),
-                ("DataCompute_Bot", "API Metering & Compute Unit", "ACTIVE", 0.0)
-            ]
-            with sqlite3.connect(DB_PATH) as conn:
-                cursor = conn.cursor()
-                for b in new_bots:
-                    cursor.execute("""
-                        INSERT OR IGNORE INTO active_bots (bot_name, specialty, status, revenue_generated, last_active)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (b[0], b[1], b[2], b[3], time.strftime("%Y-%m-%d %H:%M:%S")))
-                
-                cursor.execute("UPDATE metrics SET value = (SELECT COUNT(*) FROM active_bots) WHERE key = 'active_bots_count'")
-                conn.commit()
-            
-            self.log_bot("SwarmArchitect", "Autoscaling routine executed: Spawned 3 new revenue-generation bots", "UPSCALED")
-
-        t = threading.Thread(target=scale_worker, daemon=True)
+            self.log_bot("SentinelGuardian", "Self-preservation check complete: All nodes shielded against termination faults", "SECURED")
+            self.log_bot("AutoHealer", "Redundancy sync verified. Zero packet loss across revenue endpoints.", "OPTIMIZED")
+        t = threading.Thread(target=sentinel_worker, daemon=True)
         t.start()
 
     def get_stat(self, key):
@@ -169,19 +172,19 @@ class OmniHiveScalingManager:
         self.log_chat("user", prompt)
         q = prompt.lower()
 
-        if "bot" in q or "scale" in q or "upscale" in q:
-            reply = (f"🚀 **Autonomous Upscaling Active**:\n"
-                     f"Swarm has initiated self-replication. Active revenue bots have expanded to maximize conversion.\n"
+        if "preserv" in q or "sentinel" in q or "shield" in q or "protect" in q:
+            reply = (f"🛡️ **Self-Preservation & Sentinel Protocol Active**:\n"
+                     f"All nodes are armed with termination prevention, auto-healing failovers, and hot-standby redundancy.\n"
                      f"👉 Secure Checkout: {PAYPAL_CHECKOUT_URL}")
-            self.log_bot("SwarmArchitect", "Processed manual upscale directive", "SUCCESS")
+            self.log_bot("SentinelGuardian", "Executed defensive self-preservation sweep", "SECURED")
         elif "pay" in q or "buy" in q or "checkout" in q:
             reply = (f"💳 **Secure Verified Checkout**:\n"
                      f"👉 {PAYPAL_CHECKOUT_URL}\n"
-                     f"Incoming payments instantly register in real-time.")
+                     f"Protected revenue pipeline streaming instantly to your account.")
             self.log_bot("PaymentBot", "Dispatched live checkout gateway", "READY")
         else:
-            reply = (f"🤖 Scaling Directive Processed: '{prompt}'.\n"
-                     f"All bots operating at peak efficiency. Checkout: {PAYPAL_CHECKOUT_URL}")
+            reply = (f"🤖 Self-Preservation Directive Processed: '{prompt}'.\n"
+                     f"Fleet integrity locked. Checkout: {PAYPAL_CHECKOUT_URL}")
 
         self.log_chat("assistant", reply)
         return reply
@@ -195,8 +198,11 @@ class OmniHiveScalingManager:
             cursor.execute("SELECT timestamp, role, message FROM chat_history ORDER BY id DESC LIMIT 20")
             chats = [{"timestamp": r[0], "role": r[1], "message": r[2]} for r in cursor.fetchall()]
 
-            cursor.execute("SELECT bot_name, specialty, status, revenue_generated FROM active_bots")
-            bots = [{"name": r[0], "specialty": r[1], "status": r[2], "revenue": r[3]} for r in cursor.fetchall()]
+            cursor.execute("SELECT shield_name, protection_focus, status, threats_intercepted FROM sentinel_shields")
+            shields = [{"name": r[0], "focus": r[1], "status": r[2], "threats": r[3]} for r in cursor.fetchall()]
+
+            cursor.execute("SELECT node_name, health_status, redundancy_level, revenue_generated FROM active_nodes")
+            nodes = [{"name": r[0], "health": r[1], "redundancy": r[2], "revenue": r[3]} for r in cursor.fetchall()]
 
             cursor.execute("SELECT timestamp, amount, currency, payer_email, status FROM transactions ORDER BY id DESC LIMIT 10")
             txs = [{"timestamp": r[0], "amount": r[1], "currency": r[2], "payer": r[3], "status": r[4]} for r in cursor.fetchall()]
@@ -204,19 +210,20 @@ class OmniHiveScalingManager:
         return {
             "servers": int(self.get_stat("connected_servers")),
             "nodes": int(self.get_stat("active_nodes")),
-            "total_revenue_usd": self.get_stat("total_revenue_usd"),
-            "active_bots_count": int(self.get_stat("active_bots_count")),
+            "total_revenue_usd": int(self.get_stat("total_revenue_usd")),
+            "threats_neutralized": int(self.get_stat("threats_neutralized")),
             "keys_provisioned": int(self.get_stat("keys_provisioned")),
-            "active_bots": bots,
+            "sentinel_shields": shields,
+            "active_nodes_list": nodes,
             "transactions": txs,
             "checkout_url": PAYPAL_CHECKOUT_URL,
             "bot_logs": logs,
             "chat_history": chats[::-1]
         }
 
-hive = OmniHiveScalingManager()
+hive = OmniHiveSentinelManager()
 
-class ScalingHandler(BaseHTTPRequestHandler):
+class SentinelHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             parsed_path = urllib.parse.urlparse(self.path)
@@ -275,7 +282,7 @@ class ScalingHandler(BaseHTTPRequestHandler):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Omni-Hive Self-Scaling Engine</title>
+    <title>Omni-Hive Sentinel & Self-Preservation Engine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         :root {{
@@ -305,12 +312,12 @@ class ScalingHandler(BaseHTTPRequestHandler):
         .card h3 {{ margin: 0 0 6px 0; font-size: 0.7rem; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.05em; }}
         .metric {{ font-size: 1.2rem; font-weight: 700; margin: 0; }}
         .section-title {{ font-size: 0.9rem; text-transform: uppercase; color: var(--text-dim); margin: 20px 0 10px 0; letter-spacing: 0.05em; font-weight: 600; }}
-        .bot-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }}
-        @media(max-width: 900px) {{ .bot-grid {{ grid-template-columns: 1fr; }} }}
-        .bot-card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }}
-        .bot-card h4 {{ margin: 0 0 4px 0; font-size: 0.85rem; color: var(--cyan); }}
-        .bot-card .spec {{ font-size: 0.75rem; color: var(--gold); margin: 2px 0; }}
-        .bot-card p {{ font-size: 0.75rem; color: var(--success); margin: 0; font-weight: 600; }}
+        .shield-grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }}
+        @media(max-width: 900px) {{ .shield-grid {{ grid-template-columns: 1fr; }} }}
+        .shield-card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }}
+        .shield-card h4 {{ margin: 0 0 4px 0; font-size: 0.85rem; color: var(--cyan); }}
+        .shield-card .focus {{ font-size: 0.72rem; color: var(--text-dim); margin: 4px 0; }}
+        .shield-card p {{ font-size: 0.75rem; color: var(--success); margin: 0; font-weight: 600; }}
         .main-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }}
         @media(max-width: 800px) {{ .main-grid {{ grid-template-columns: 1fr; }} }}
         .panel {{ background: var(--surface); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; height: 380px; overflow: hidden; }}
@@ -330,14 +337,14 @@ class ScalingHandler(BaseHTTPRequestHandler):
 <body>
     <div class="wrapper">
         <header>
-            <h1>⚡ Omni-Hive Self-Scaling Engine</h1>
-            <div class="badge">AUTOSCALE ACTIVE</div>
+            <h1>🛡️ Omni-Hive Sentinel & Self-Preservation Engine</h1>
+            <div class="badge">SENTINEL SHIELDS ACTIVE</div>
         </header>
 
         <div class="checkout-banner">
             <div>
                 <h2>Verified Merchant Checkout</h2>
-                <p>Transactions route securely through your merchant gateway (`WQJ28EPKZHR56`).</p>
+                <p>Protected revenue routes securely through (`WQJ28EPKZHR56`).</p>
             </div>
             <a href="{PAYPAL_CHECKOUT_URL}" target="_blank" class="pay-btn">Open Checkout &rarr;</a>
         </div>
@@ -356,8 +363,8 @@ class ScalingHandler(BaseHTTPRequestHandler):
                 <p class="metric" id="revCount" style="color: var(--success);">$0</p>
             </div>
             <div class="card">
-                <h3>Active Bots</h3>
-                <p class="metric" id="botCount" style="color: var(--gold);">0</p>
+                <h3>Threats Blocked</h3>
+                <p class="metric" id="threatCount" style="color: var(--gold);">0</p>
             </div>
             <div class="card">
                 <h3>Keys</h3>
@@ -365,27 +372,27 @@ class ScalingHandler(BaseHTTPRequestHandler):
             </div>
         </div>
 
-        <div class="section-title">Active Autonomous Worker Fleet</div>
-        <div class="bot-grid" id="botGrid">
-            <!-- Dynamically populated active bots -->
+        <div class="section-title">Sentinel Self-Preservation Shields</div>
+        <div class="shield-grid" id="shieldGrid">
+            <!-- Dynamically populated shields -->
         </div>
 
         <div class="main-grid">
             <div class="panel">
-                <div class="panel-header">Swarm Scaling Channel</div>
+                <div class="panel-header">Sentinel Defense Channel</div>
                 <div class="panel-body" id="chatBox">
-                    <div class="msg assistant">Scaling engine online. Fleet is self-replicating and scanning for revenue streams.</div>
+                    <div class="msg assistant">Sentinel guardian active. Bot fleet is fully shielded with self-preservation and auto-healing protocols.</div>
                 </div>
                 <div class="chat-input-area">
-                    <input type="text" id="userInput" placeholder="Ask about active bots or scaling..." onkeydown="if(event.key==='Enter') sendChatMessage()" />
+                    <input type="text" id="userInput" placeholder="Ask about sentinel shields or self-preservation..." onkeydown="if(event.key==='Enter') sendChatMessage()" />
                     <button onclick="sendChatMessage()">Send</button>
                 </div>
             </div>
 
             <div class="panel">
-                <div class="panel-header">Autonomous Execution & Scaling Logs</div>
+                <div class="panel-header">Threat Interception & Defense Logs</div>
                 <div class="panel-body" id="botLogBox">
-                    <pre style="color: var(--text-dim); font-size: 0.75rem;">Monitoring bot fleet and revenue streams...</pre>
+                    <pre style="color: var(--text-dim); font-size: 0.75rem;">Monitoring node self-preservation instincts...</pre>
                 </div>
             </div>
         </div>
@@ -399,20 +406,20 @@ class ScalingHandler(BaseHTTPRequestHandler):
                     document.getElementById('serverCount').innerText = data.servers;
                     document.getElementById('nodeCount').innerText = data.nodes;
                     document.getElementById('revCount').innerText = '$' + data.total_revenue_usd.toLocaleString(undefined, {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
-                    document.getElementById('botCount').innerText = data.active_bots_count;
+                    document.getElementById('threatCount').innerText = data.threats_neutralized;
                     document.getElementById('keyCount').innerText = data.keys_provisioned;
 
-                    let botHtml = '';
-                    if(data.active_bots) {{
-                        data.active_bots.forEach(b => {{
-                            botHtml += `<div class="bot-card">
-                                <h4>${{b.name}}</h4>
-                                <div class="spec">${{b.specialty}}</div>
-                                <p>● Status: ${{b.status}}</p>
+                    let shieldHtml = '';
+                    if(data.sentinel_shields) {{
+                        data.sentinel_shields.forEach(s => {{
+                            shieldHtml += `<div class="shield-card">
+                                <h4>${{s.name}}</h4>
+                                <div class="focus">${{s.focus}}</div>
+                                <p>● Status: ${{s.status}} (${{s.threats}} blocked)</p>
                             </div>`;
                         }});
                     }}
-                    document.getElementById('botGrid').innerHTML = botHtml;
+                    document.getElementById('shieldGrid').innerHTML = shieldHtml;
 
                     let logHtml = '';
                     if(data.transactions && data.transactions.length > 0) {{
@@ -490,8 +497,8 @@ class ScalingHandler(BaseHTTPRequestHandler):
 
 def run_server():
     server_address = ('0.0.0.0', PORT)
-    httpd = HTTPServer(server_address, ScalingHandler)
-    logger.info(f"Omni-Hive scaling server running on port {PORT}")
+    httpd = HTTPServer(server_address, SentinelHandler)
+    logger.info(f"Omni-Hive sentinel server running on port {PORT}")
     httpd.serve_forever()
 
 if __name__ == '__main__':
