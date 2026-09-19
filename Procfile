@@ -1,1 +1,1 @@
-web: python omni_hive_node.py
+web: python3 app.py

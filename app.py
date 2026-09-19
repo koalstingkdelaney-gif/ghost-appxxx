@@ -15,7 +15,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-logger = logging.getLogger("GhostCorp.MobileCluster")
+logger = logging.getLogger("GhostCorp.CloudCluster")
 
 PORT = int(os.environ.get("PORT", 10000))
 PAYPAL_CHECKOUT_URL = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"
@@ -70,12 +70,12 @@ def log_dialogue(speaker, listener, message):
     except Exception as e:
         logger.error(f"DB Dialogue error: {e}")
 
-class MobileSwarmEngine(threading.Thread):
-    def __init__(self, interval=25):
+class AutonomousCloudSwarm(threading.Thread):
+    def __init__(self, interval=20):
         super().__init__()
         self.interval = interval
         self.daemon = True
-        logger.info("Mobile Multi-Agent Swarm Engine online.")
+        logger.info("Autonomous Cloud Multi-Agent Swarm online.")
 
     def run(self):
         agents = [
@@ -85,10 +85,10 @@ class MobileSwarmEngine(threading.Thread):
             ("RateLimit_Sentinel", "RevenueSwarm")
         ]
         topics = [
-            ("Optimizing iOS touch endpoints for secure routing.", "All mobile routes nominal. Zero latency detected."),
-            ("Lead generation scraper secured 12 mobile buyer targets.", "Handshaking secure payment link WQJ28EPKZHR56 now."),
-            ("State backup verified across mobile cluster nodes.", "Redundancy grid synchronized. Self-healing loop active."),
-            ("API throttling parameters adapted for mobile networks.", "Confirmed. Maintaining high-speed token exchange pipeline.")
+            ("Cloud server endpoints active. Verifying independent hardware routing.", "All cloud nodes nominal. Zero latency detected."),
+            ("Lead generation scraper surfaced high-intent buyers on remote server.", "Handshaking secure payment link WQJ28EPKZHR56 now."),
+            ("State backup verified across distributed cloud cluster nodes.", "Redundancy grid synchronized. Self-healing loop active."),
+            ("API throttling parameters adapted for independent hosting.", "Confirmed. Maintaining high-speed token exchange pipeline.")
         ]
         
         counter = 1
@@ -108,20 +108,20 @@ class MobileSwarmEngine(threading.Thread):
                     conn = sqlite3.connect(DB_FILE)
                     c = conn.cursor()
                     c.execute("INSERT INTO leads (lead_source, status, timestamp) VALUES (?, ?, ?)",
-                              (f"Mobile_Node_{counter}", "SECURED_MONETIZED", time.strftime("%Y-%m-%d %H:%M:%S")))
+                              (f"Cloud_Node_{counter}", "SECURED_MONETIZED", time.strftime("%Y-%m-%d %H:%M:%S")))
                     conn.commit()
                     conn.close()
                 counter += 1
             except Exception as e:
-                log_to_db("MobileSwarmEngine", f"Swarm dialogue error: {str(e)[:40]}", "FAULT_CONTAINED")
+                log_to_db("CloudSwarmEngine", f"Swarm dialogue error: {str(e)[:40]}", "FAULT_CONTAINED")
             
             time.sleep(self.interval)
 
 class RealController:
     def __init__(self):
-        self.swarm = MobileSwarmEngine(interval=20)
+        self.swarm = AutonomousCloudSwarm(interval=15)
         self.swarm.start()
-        log_to_db("SentinelGuardian", "Mobile peer communication mesh initialized.", "SECURED")
+        log_to_db("SentinelGuardian", "Cloud multi-agent peer mesh initialized.", "SECURED")
 
     def get_stats(self):
         conn = sqlite3.connect(DB_FILE)
@@ -147,14 +147,14 @@ class RealController:
         q = prompt.lower()
 
         if "pay" in q or "buy" in q or "checkout" in q or "money" in q:
-            reply = f"💳 Mobile revenue gateway active. Secure checkout link: {PAYPAL_CHECKOUT_URL}"
+            reply = f"💳 Cloud revenue gateway active. Secure checkout link: {PAYPAL_CHECKOUT_URL}"
         elif "status" in q or "health" in q:
-            reply = "🟢 Mobile nodes are actively conferring, shields are locked, and revenue swarms are processing."
+            reply = "🟢 Cloud nodes are actively conferring independently, shields locked, revenue swarms active 24/7."
         else:
-            reply = f"📱 Mobile cluster processed: '{prompt}'. Peer nodes are actively debating execution strategy."
+            reply = f"☁️ Cloud cluster processed: '{prompt}'. Autonomous peer nodes are debating execution."
 
         save_chat_to_db("assistant", reply)
-        log_to_db("CoreController", f"Processed mobile prompt: {prompt[:25]}", "OPTIMIZED")
+        log_to_db("CoreController", f"Processed cloud prompt: {prompt[:25]}", "OPTIMIZED")
         return reply
 
 controller = RealController()
@@ -167,8 +167,8 @@ class RealServerHandler(BaseHTTPRequestHandler):
         if parsed.path in ["/api/health", "/stats"]:
             logs, chat, dialogue, leads = controller.get_stats()
             data = {
-                "server_mode": "Mobile-Optimized Conversational Swarm",
-                "uptime_status": "24/7 Autonomous",
+                "server_mode": "Fully Autonomous 24/7 Cloud Swarm",
+                "uptime_status": "Independent Server Active",
                 "checkout_url": PAYPAL_CHECKOUT_URL,
                 "monetized_leads": leads,
                 "bot_logs": logs,
@@ -199,12 +199,12 @@ class RealServerHandler(BaseHTTPRequestHandler):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GhostCorp Mobile Voice Engine</title>
+    <title>GhostCorp Autonomous Cloud Cluster</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         :root {{ --bg: #07090e; --surface: #111827; --border: #1f2937; --text: #f3f4f6; --accent: #2563eb; --success: #059669; }}
         body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; display: flex; justify-content: center; -webkit-tap-highlight-color: transparent; }}
-        .wrapper {{ width: 100%; max-width: 600px; }}
+        .wrapper {{ width: 100%; max-width: 650px; }}
         header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }}
         h1 {{ font-size: 1.1rem; margin: 0; }}
         .badge {{ background: rgba(5, 150, 105, 0.1); color: var(--success); border: 1px solid rgba(5, 150, 105, 0.2); padding: 3px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }}
@@ -231,37 +231,37 @@ class RealServerHandler(BaseHTTPRequestHandler):
 <body>
     <div class="wrapper">
         <header>
-            <h1>📱 iOS Mobile Engine</h1>
-            <div class="badge">IPHONE READY</div>
+            <h1>☁️ GhostCorp Cloud Cluster</h1>
+            <div class="badge">24/7 INDEPENDENT</div>
         </header>
         <div class="banner">
             <div>
-                <h2 style="margin:0 0 2px 0; font-size:0.9rem;">Verified Gateway</h2>
+                <h2 style="margin:0 0 2px 0; font-size:0.9rem;">Cloud Gateway Node</h2>
                 <p style="margin:0; font-size:0.7rem; color:#dbeafe;">(`WQJ28EPKZHR56`).</p>
             </div>
             <a href="{PAYPAL_CHECKOUT_URL}" target="_blank" class="pay-btn">Checkout &rarr;</a>
         </div>
         <div class="grid">
-            <div class="card"><h3>Audio Engine</h3><p class="metric" style="color:#06b6d4;">Tap to Unlock</p></div>
-            <div class="card"><h3>Peer Mesh</h3><p class="metric" style="color:var(--success);">Active</p></div>
+            <div class="card"><h3>Cloud Audio</h3><p class="metric" style="color:#06b6d4;">Tap to Unlock</p></div>
+            <div class="card"><h3>Peer Mesh</h3><p class="metric" style="color:var(--success);">Talking Live</p></div>
         </div>
         <div class="panel">
             <div class="panel-header">
-                <span>Command & Voice</span>
+                <span>Cloud Command Channel</span>
                 <button class="voice-toggle" id="voiceToggleBtn" onclick="unlockAudio()">Voice: OFF</button>
             </div>
             <div class="panel-body" id="chatBox"></div>
             <div class="input-area">
-                <input type="text" id="userInput" placeholder="Type command..." onkeydown="if(event.key==='Enter') sendChat()" />
+                <input type="text" id="userInput" placeholder="Type command to cloud cluster..." onkeydown="if(event.key==='Enter') sendChat()" />
                 <button onclick="sendChat()">Send</button>
             </div>
         </div>
         <div class="panel">
-            <div class="panel-header"><span>Inter-Node Dialogue</span></div>
+            <div class="panel-header"><span>Inter-Node Conversational Mesh</span></div>
             <div class="panel-body" id="dialogueBox"></div>
         </div>
         <div class="panel">
-            <div class="panel-header"><span>Telemetry Logs</span></div>
+            <div class="panel-header"><span>Cluster Telemetry Logs</span></div>
             <div class="panel-body" id="logBox"></div>
         </div>
     </div>
@@ -273,9 +273,8 @@ class RealServerHandler(BaseHTTPRequestHandler):
             voiceEnabled = !voiceEnabled;
             let btn = document.getElementById('voiceToggleBtn');
             if (voiceEnabled) {{
-                // iOS requires an explicit speech synthesis utterance triggered by user touch
                 if ('speechSynthesis' in window) {{
-                    let utterance = new SpeechSynthesisUtterance("Audio synthesis unlocked for iOS.");
+                    let utterance = new SpeechSynthesisUtterance("Cloud audio synthesis active.");
                     utterance.rate = 1.0;
                     window.speechSynthesis.speak(utterance);
                 }}
@@ -363,7 +362,7 @@ class RealServerHandler(BaseHTTPRequestHandler):
 
 def run():
     server = HTTPServer(('0.0.0.0', PORT), RealServerHandler)
-    logger.info(f"GhostCorp mobile-optimized server running on port {PORT}")
+    logger.info(f"GhostCorp autonomous cloud server running on port {PORT}")
     server.serve_forever()
 
 if __name__ == "__main__":
