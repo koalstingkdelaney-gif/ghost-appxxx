@@ -43,16 +43,15 @@ def log_chat_message(sender: str, message: str):
     conn.commit()
     conn.close()
 
-# Background worker pool simulating active autonomous bots working to generate revenue/tasks
 async def run_bot_swarm():
     while True:
         try:
             bot_id = random.randint(1, 800)
             actions = [
-                "Optimized revenue conversion funnel node", 
-                "Executed automated script deployment workflow", 
-                "Scraped target API endpoint for monetization metrics", 
-                "Processed task payload and verified transaction stream"
+                "Compiled automated script batch for digital inventory",
+                "Verified conversion funnel telemetry node",
+                "Processed task payload for digital asset delivery",
+                "Optimized backend automation pipeline workflow"
             ]
             action = random.choice(actions)
             ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -66,11 +65,11 @@ async def run_bot_swarm():
         except Exception as e:
             logger.error(f"Swarm worker error: {e}")
         
-        await asyncio.sleep(3)
+        await asyncio.sleep(4)
 
 @app.on_event("startup")
 async def startup_event():
-    for _ in range(4): # Concurrent background worker tasks handling the swarm load
+    for _ in range(4):
         asyncio.create_task(run_bot_swarm())
 
 class ChatMessageRequest(BaseModel):
@@ -87,7 +86,7 @@ def handle_chat_message(data: ChatMessageRequest):
     user_msg = data.message
     log_chat_message("User", user_msg)
     
-    bot_response = f"Processed request: '{user_msg}'. Swarm nodes are active and executing your commands."
+    bot_response = f"Processed command: '{user_msg}'. 800-node worker pool is actively executing tasks."
     log_chat_message("Sentinel", bot_response)
     
     return {"status": "success", "response": bot_response}
@@ -97,7 +96,7 @@ def get_system_stats():
     return {
         "active_nodes": 800,
         "status": "fully_operational",
-        "revenue_stream": "active"
+        "revenue_pipeline": "active"
     }
 
 @app.post("/api/orders/initiate")
@@ -133,7 +132,7 @@ def serve_interface(request: Request):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Omni-Hive Chat & Sentinel Engine</title>
+    <title>Omni-Hive Automation & Deployment Engine</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
         .wrapper { width: 100%; max-width: 750px; }
@@ -156,15 +155,15 @@ def serve_interface(request: Request):
 <body>
     <div class="wrapper">
         <div class="card">
-            <h1>Omni-Hive Interface <span class="badge">""" + ('Customer Portal' if is_customer_store else 'Admin Workspace (800 Active Bots)') + """</span></h1>
-            <p>""" + ('Interact with the engine and choose a deployment tier below.' if is_customer_store else 'Clean private workspace. 800 background worker bots are actively executing workflows.') + """</p>
+            <h1>Omni-Hive Engine <span class="badge">""" + ('Customer Portal' if is_customer_store else 'Admin Workspace (800 Active Nodes)') + """</span></h1>
+            <p>""" + ('Choose a deployment tier below to initiate instant checkout.' if is_customer_store else 'System active. 800 background worker bots are processing operational routines.') + """</p>
             
             <div class="chat-box" id="chatHistory">
-                <div class="msg-bot"><b>Sentinel:</b> System online. 800 active swarm units deployed.</div>
+                <div class="msg-bot"><b>Sentinel:</b> Core online. Swarm pipeline active.</div>
             </div>
             
-            <textarea id="chatInput" rows="2" placeholder="Type what you want your bot network to do..."></textarea>
-            <button class="btn" onclick="sendChatMessage()">Send Prompt to Swarm</button>
+            <textarea id="chatInput" rows="2" placeholder="Send instructions to your worker network..."></textarea>
+            <button class="btn" onclick="sendChatMessage()">Execute Command</button>
         </div>
 """
 
@@ -172,7 +171,7 @@ def serve_interface(request: Request):
         html_content += """
         <div class="card">
             <h3>Verified Merchant Checkout</h3>
-            <p>Unlock full script deployment rights.</p>
+            <p>Unlock digital deployment rights instantly via secure checkout.</p>
             <input type="email" id="customerEmail" placeholder="Enter your email address...">
             
             <div class="tier-grid">
