@@ -1,1 +1,1 @@
-# Minimal configuration for cloud VPS & PaaS deployment
+# Living AI & Developer Command Cluster Dependencies

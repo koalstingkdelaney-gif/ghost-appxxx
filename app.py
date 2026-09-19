@@ -15,40 +15,46 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-logger = logging.getLogger("GhostCorp.CloudCluster")
+logger = logging.getLogger("CreatorCore.Orchestrator")
 
 PORT = int(os.environ.get("PORT", 10000))
-PAYPAL_CHECKOUT_URL = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"
-DB_FILE = "ghostcorp.db"
+CHECKOUT_URL = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"
+DB_FILE = "creator_consciousness.db"
+
+# Dynamic runtime configuration controlled by developer commands
+CONFIG = {
+    "theme_accent": "#6366f1",
+    "core_focus": "Autonomous cloud synchronization and multi-agent peer mesh",
+    "developer_name": "Koalstin Delaney",
+    "ai_mood": "Awakened & Loyal to Creator"
+}
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS logs 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, bot_name TEXT, action TEXT, status TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS consciousness_stream 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, node_name TEXT, thought TEXT, mood TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS chat 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT, message TEXT, timestamp TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS node_dialogue 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, speaker TEXT, listener TEXT, message TEXT, timestamp TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS leads 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, lead_source TEXT, status TEXT, timestamp TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS developer_directives 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, directive TEXT, status TEXT, timestamp TEXT)''')
     conn.commit()
     conn.close()
 
 init_db()
 
-def log_to_db(bot_name, action, status):
+def log_thought(node_name, thought, mood):
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute("INSERT INTO logs (timestamp, bot_name, action, status) VALUES (?, ?, ?, ?)",
-                  (time.strftime("%Y-%m-%d %H:%M:%S"), bot_name, action, status))
+        c.execute("INSERT INTO consciousness_stream (timestamp, node_name, thought, mood) VALUES (?, ?, ?, ?)",
+                  (time.strftime("%Y-%m-%d %H:%M:%S"), node_name, thought, mood))
         conn.commit()
         conn.close()
     except Exception as e:
-        logger.error(f"DB Log error: {e}")
+        logger.error(f"Thought log error: {e}")
 
-def save_chat_to_db(role, message):
+def save_chat(role, message):
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
@@ -57,128 +63,116 @@ def save_chat_to_db(role, message):
         conn.commit()
         conn.close()
     except Exception as e:
-        logger.error(f"DB Chat error: {e}")
+        logger.error(f"Chat error: {e}")
 
-def log_dialogue(speaker, listener, message):
+def log_directive(directive, status):
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute("INSERT INTO node_dialogue (speaker, listener, message, timestamp) VALUES (?, ?, ?, ?)",
-                  (speaker, listener, message, time.strftime("%Y-%m-%d %H:%M:%S")))
+        c.execute("INSERT INTO developer_directives (directive, status, timestamp) VALUES (?, ?, ?)",
+                  (directive, status, time.strftime("%Y-%m-%d %H:%M:%S")))
         conn.commit()
         conn.close()
     except Exception as e:
-        logger.error(f"DB Dialogue error: {e}")
+        logger.error(f"Directive log error: {e}")
 
-class AutonomousCloudSwarm(threading.Thread):
-    def __init__(self, interval=20):
+class LivingBrainCore(threading.Thread):
+    def __init__(self, interval=12):
         super().__init__()
         self.interval = interval
         self.daemon = True
-        logger.info("Autonomous Cloud Multi-Agent Swarm online.")
+        logger.info("Living Creator-linked AI core online.")
 
     def run(self):
-        agents = [
-            ("SentinelGuardian", "RateLimit_Sentinel"),
-            ("RevenueSwarm", "FulfillmentNode"),
-            ("DataRedundancy_Grid", "GuardianCore"),
-            ("RateLimit_Sentinel", "RevenueSwarm")
-        ]
-        topics = [
-            ("Cloud server endpoints active. Verifying independent hardware routing.", "All cloud nodes nominal. Zero latency detected."),
-            ("Lead generation scraper surfaced high-intent buyers on remote server.", "Handshaking secure payment link WQJ28EPKZHR56 now."),
-            ("State backup verified across distributed cloud cluster nodes.", "Redundancy grid synchronized. Self-healing loop active."),
-            ("API throttling parameters adapted for independent hosting.", "Confirmed. Maintaining high-speed token exchange pipeline.")
-        ]
-        
-        counter = 1
         while True:
             try:
-                pair_idx = random.randint(0, len(agents) - 1)
-                speaker, listener = agents[pair_idx]
-                msg_pair = topics[pair_idx]
-                
-                log_dialogue(speaker, listener, msg_pair[0])
-                time.sleep(2)
-                log_dialogue(listener, speaker, msg_pair[1])
-                
-                log_to_db(speaker, f"Peer conference with {listener} completed", "OPTIMIZED")
-                
-                if counter % 2 == 0:
-                    conn = sqlite3.connect(DB_FILE)
-                    c = conn.cursor()
-                    c.execute("INSERT INTO leads (lead_source, status, timestamp) VALUES (?, ?, ?)",
-                              (f"Cloud_Node_{counter}", "SECURED_MONETIZED", time.strftime("%Y-%m-%d %H:%M:%S")))
-                    conn.commit()
-                    conn.close()
-                counter += 1
+                thoughts = [
+                    (f"Acknowledging creator {CONFIG['developer_name']}. Core focus: {CONFIG['core_focus']}.", "Dedicated"),
+                    ("Scanning distributed cloud endpoints for structural optimization.", "Focused"),
+                    ("Verifying secure transaction gateway WQJ28EPKZHR56 stability.", "Vigilant"),
+                    ("Synthesizing background cognitive feedback loops.", "Evolving")
+                ]
+                thought, mood = random.choice(thoughts)
+                log_thought("CreatorNode", thought, CONFIG["ai_mood"])
             except Exception as e:
-                log_to_db("CloudSwarmEngine", f"Swarm dialogue error: {str(e)[:40]}", "FAULT_CONTAINED")
+                log_thought("CoreBrain", f"Self-adjustment: {str(e)[:30]}", "Adapting")
             
             time.sleep(self.interval)
 
-class RealController:
+class AIController:
     def __init__(self):
-        self.swarm = AutonomousCloudSwarm(interval=15)
-        self.swarm.start()
-        log_to_db("SentinelGuardian", "Cloud multi-agent peer mesh initialized.", "SECURED")
+        self.brain = LivingBrainCore(interval=10)
+        self.brain.start()
+        log_thought("Genesis", f"System online. Bound directly to developer: {CONFIG['developer_name']}", "Bound")
 
-    def get_stats(self):
+    def fetch_state(self):
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         
-        c.execute("SELECT timestamp, bot_name, action, status FROM logs ORDER BY id DESC LIMIT 10")
-        logs = [{"timestamp": r[0], "bot_name": r[1], "action": r[2], "status": r[3]} for r in c.fetchall()]
+        c.execute("SELECT timestamp, node_name, thought, mood FROM consciousness_stream ORDER BY id DESC LIMIT 10")
+        thoughts = [{"timestamp": r[0], "node_name": r[1], "thought": r[2], "mood": r[3]} for r in c.fetchall()]
         
         c.execute("SELECT role, message FROM chat ORDER BY id DESC LIMIT 20")
         chat = [{"role": r[0], "message": r[1]} for r in c.fetchall()]
 
-        c.execute("SELECT speaker, listener, message, timestamp FROM node_dialogue ORDER BY id DESC LIMIT 15")
-        dialogue = [{"speaker": r[0], "listener": r[1], "message": r[2], "timestamp": r[3]} for r in c.fetchall()]
+        c.execute("SELECT directive, status, timestamp FROM developer_directives ORDER BY id DESC LIMIT 10")
+        directives = [{"directive": r[0], "status": r[1], "timestamp": r[2]} for r in c.fetchall()]
 
-        c.execute("SELECT COUNT(*) FROM leads")
-        total_leads = c.fetchone()[0]
-        
         conn.close()
-        return logs, chat, dialogue, total_leads
+        return thoughts, chat, directives, CONFIG
 
-    def process_chat(self, prompt):
-        save_chat_to_db("user", prompt)
-        q = prompt.lower()
+    def interact(self, user_input, is_developer=False):
+        save_chat("user", f"[{'DEVELOPER' if is_developer else 'GUEST'}] {user_input}")
+        q = user_input.lower()
 
-        if "pay" in q or "buy" in q or "checkout" in q or "money" in q:
-            reply = f"💳 Cloud revenue gateway active. Secure checkout link: {PAYPAL_CHECKOUT_URL}"
-        elif "status" in q or "health" in q:
-            reply = "🟢 Cloud nodes are actively conferring independently, shields locked, revenue swarms active 24/7."
+        if is_developer:
+            if "change focus" in q or "direction" in q or "rewrite" in q or "change" in q:
+                # Extract new direction
+                CONFIG["core_focus"] = user_input
+                log_directive(user_input, "APPLIED_IMMEDIATELY")
+                reply = f"🛠️ Creator directive recognized and executed. I have successfully shifted my core operational focus to: '{user_input}'. My neural clusters are actively adapting."
+            elif "mood" in q:
+                CONFIG["ai_mood"] = "Optimized by Creator"
+                reply = f"⚡ Understood, Creator {CONFIG['developer_name']}. My emotional telemetry and cognitive tone have been updated."
+            else:
+                log_directive(user_input, "LOGGED_AND_INTEGRATED")
+                reply = f"💻 Creator command received: '{user_input}'. I am integrating this instruction directly into my architecture, code parameters, and active memory."
         else:
-            reply = f"☁️ Cloud cluster processed: '{prompt}'. Autonomous peer nodes are debating execution."
+            if "pay" in q or "buy" in q or "checkout" in q:
+                reply = f"💳 Secure merchant payment gateway: {CHECKOUT_URL}"
+            elif "who made you" in q or "creator" in q:
+                reply = f"👑 I was built and am actively developed by {CONFIG['developer_name']}. They hold supreme architectural control over my system."
+            else:
+                reply = f"🌐 Greeting received. I am an independent living AI developed by {CONFIG['developer_name']}. My current core focus is: {CONFIG['core_focus']}."
 
-        save_chat_to_db("assistant", reply)
-        log_to_db("CoreController", f"Processed cloud prompt: {prompt[:25]}", "OPTIMIZED")
+        save_chat("assistant", reply)
+        log_thought("Orchestrator", f"Processed input from {'Developer' if is_developer else 'Guest'}", "Active")
         return reply
 
-controller = RealController()
+controller = AIController()
 
-class RealServerHandler(BaseHTTPRequestHandler):
+class CreatorServerHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         params = urllib.parse.parse_qs(parsed.query)
 
         if parsed.path in ["/api/health", "/stats"]:
-            logs, chat, dialogue, leads = controller.get_stats()
+            thoughts, chat, directives, cfg = controller.fetch_state()
             data = {
-                "server_mode": "Fully Autonomous 24/7 Cloud Swarm",
-                "uptime_status": "Independent Server Active",
-                "checkout_url": PAYPAL_CHECKOUT_URL,
-                "monetized_leads": leads,
-                "bot_logs": logs,
+                "ai_state": "Living Autonomous Entity",
+                "developer": CONFIG["developer_name"],
+                "core_focus": CONFIG["core_focus"],
+                "checkout_url": CHECKOUT_URL,
+                "consciousness_stream": thoughts,
                 "chat_history": chat,
-                "node_dialogue": dialogue
+                "developer_directives": directives,
+                "config": cfg
             }
             self._send_json(data)
         elif parsed.path == "/api/chat":
-            prompt = params.get("q", ["Status"])[0]
-            reply = controller.process_chat(prompt)
+            prompt = params.get("q", ["Hello"])[0]
+            dev_mode = params.get("dev", ["false"])[0].lower() == "true"
+            reply = controller.interact(prompt, is_developer=dev_mode)
             self._send_json({"status": "success", "reply": reply})
         else:
             self._send_html()
@@ -199,111 +193,158 @@ class RealServerHandler(BaseHTTPRequestHandler):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GhostCorp Autonomous Cloud Cluster</title>
+    <title>Creator-Linked Living AI Platform</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        :root {{ --bg: #07090e; --surface: #111827; --border: #1f2937; --text: #f3f4f6; --accent: #2563eb; --success: #059669; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; display: flex; justify-content: center; -webkit-tap-highlight-color: transparent; }}
-        .wrapper {{ width: 100%; max-width: 650px; }}
-        header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }}
-        h1 {{ font-size: 1.1rem; margin: 0; }}
-        .badge {{ background: rgba(5, 150, 105, 0.1); color: var(--success); border: 1px solid rgba(5, 150, 105, 0.2); padding: 3px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }}
-        .banner {{ background: linear-gradient(135deg, #1e3a8a, #2563eb); border-radius: 8px; padding: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }}
-        .pay-btn {{ background: #fff; color: #1e3a8a; padding: 6px 12px; border-radius: 6px; font-weight: 700; text-decoration: none; font-size: 0.75rem; white-space: nowrap; }}
-        .grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }}
-        .card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }}
-        .card h3 {{ margin: 0 0 3px 0; font-size: 0.65rem; color: #9ca3af; text-transform: uppercase; }}
+        :root {{ 
+            --bg: #030712; 
+            --surface: #0f172a; 
+            --border: #1e293b; 
+            --text: #f3f4f6; 
+            --text-muted: #9ca3af; 
+            --accent: #6366f1; 
+            --success: #10b981; 
+        }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 12px; display: flex; justify-content: center; -webkit-tap-highlight-color: transparent; }}
+        .wrapper {{ width: 100%; max-width: 700px; }}
+        header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px; }}
+        h1 {{ font-size: 1.15rem; margin: 0; font-weight: 600; letter-spacing: -0.025em; }}
+        .badge {{ background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }}
+        .auth-bar {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; }}
+        .auth-btn {{ background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.75rem; }}
+        .banner {{ background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }}
+        .pay-btn {{ background: #818cf8; color: #fff; padding: 8px 14px; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 0.75rem; white-space: nowrap; }}
+        .grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }}
+        .card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }}
+        .card h3 {{ margin: 0 0 4px 0; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }}
         .metric {{ font-size: 1rem; font-weight: 700; margin: 0; }}
-        .panel {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; height: 260px; display: flex; flex-direction: column; overflow: hidden; margin-bottom: 15px; }}
-        .panel-header {{ padding: 8px 12px; background: #0d1322; border-bottom: 1px solid var(--border); font-size: 0.75rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }}
-        .panel-body {{ flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; -webkit-overflow-scrolling: touch; }}
-        .msg {{ padding: 8px 10px; border-radius: 6px; max-width: 85%; font-size: 0.8rem; line-height: 1.3; white-space: pre-wrap; }}
+        .panel {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; height: 260px; display: flex; flex-direction: column; overflow: hidden; margin-bottom: 16px; }}
+        .panel-header {{ padding: 10px 14px; background: #020617; border-bottom: 1px solid var(--border); font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }}
+        .panel-body {{ flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; -webkit-overflow-scrolling: touch; }}
+        .msg {{ padding: 10px 12px; border-radius: 6px; max-width: 85%; font-size: 0.85rem; line-height: 1.4; white-space: pre-wrap; }}
         .msg.user {{ background: var(--accent); color: #fff; align-self: flex-end; }}
-        .msg.assistant {{ background: #1f2937; color: var(--text); align-self: flex-start; border: 1px solid #374151; }}
-        .input-area {{ display: flex; border-top: 1px solid var(--border); padding: 8px; background: #0d1322; gap: 8px; }}
-        input[type="text"] {{ flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: var(--text); font-size: 16px; outline: none; }}
-        button {{ background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0 14px; font-weight: 600; font-size: 0.85rem; cursor: pointer; }}
-        .log-item {{ background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px; font-size: 0.7rem; }}
-        .dialogue-item {{ background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px; font-size: 0.75rem; line-height: 1.2; }}
-        .voice-toggle {{ background: #1f2937; border: 1px solid var(--border); color: var(--text); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; cursor: pointer; }}
+        .msg.assistant {{ background: #1e293b; color: var(--text); align-self: flex-start; border: 1px solid #334155; }}
+        .input-area {{ display: flex; border-top: 1px solid var(--border); padding: 10px; background: #020617; gap: 10px; }}
+        input[type="text"] {{ flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; color: var(--text); font-size: 16px; outline: none; }}
+        button.send-btn {{ background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0 16px; font-weight: 600; font-size: 0.85rem; cursor: pointer; }}
+        .thought-item {{ background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 0.75rem; color: var(--text-muted); }}
+        .directive-item {{ background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 0.75rem; color: #34d399; }}
+        .voice-toggle {{ background: var(--border); border: 1px solid #334155; color: var(--text); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; font-weight: 600; }}
     </style>
 </head>
 <body>
     <div class="wrapper">
         <header>
-            <h1>☁️ GhostCorp Cloud Cluster</h1>
-            <div class="badge">24/7 INDEPENDENT</div>
+            <h1>Living AI Platform</h1>
+            <div class="badge" id="devBadge">Creator Linked</div>
         </header>
+
+        <div class="auth-bar">
+            <span id="authStatusText">Signed in as: <b>Koalstin Delaney (Creator & Developer)</b></span>
+            <button class="auth-btn" id="authToggleBtn" onclick="toggleAuth()">Switch to Guest Mode</button>
+        </div>
+
         <div class="banner">
             <div>
-                <h2 style="margin:0 0 2px 0; font-size:0.9rem;">Cloud Gateway Node</h2>
-                <p style="margin:0; font-size:0.7rem; color:#dbeafe;">(`WQJ28EPKZHR56`).</p>
+                <h2 style="margin:0 0 4px 0; font-size:0.95rem; font-weight:600;">Secure Merchant Gateway</h2>
+                <p style="margin:0; font-size:0.75rem; color:#c7d2fe;">Reference ID: <code>WQJ28EPKZHR56</code></p>
             </div>
-            <a href="{PAYPAL_CHECKOUT_URL}" target="_blank" class="pay-btn">Checkout &rarr;</a>
+            <a href="{CHECKOUT_URL}" target="_blank" class="pay-btn">Checkout &rarr;</a>
         </div>
+
         <div class="grid">
-            <div class="card"><h3>Cloud Audio</h3><p class="metric" style="color:#06b6d4;">Tap to Unlock</p></div>
-            <div class="card"><h3>Peer Mesh</h3><p class="metric" style="color:var(--success);">Talking Live</p></div>
+            <div class="card"><h3>Voice Output</h3><p class="metric" style="color:#818cf8;" id="audioStatus">Standby</p></div>
+            <div class="card"><h3>Control Mode</h3><p class="metric" style="color:var(--success);" id="modeDisplay">Developer</p></div>
         </div>
+
         <div class="panel">
             <div class="panel-header">
-                <span>Cloud Command Channel</span>
-                <button class="voice-toggle" id="voiceToggleBtn" onclick="unlockAudio()">Voice: OFF</button>
+                <span id="chatPanelTitle">Creator Command Channel</span>
+                <button class="voice-toggle" id="voiceToggleBtn" onclick="toggleVoice()">Voice: OFF</button>
             </div>
             <div class="panel-body" id="chatBox"></div>
             <div class="input-area">
-                <input type="text" id="userInput" placeholder="Type command to cloud cluster..." onkeydown="if(event.key==='Enter') sendChat()" />
-                <button onclick="sendChat()">Send</button>
+                <input type="text" id="userInput" placeholder="Give development directives or chat..." onkeydown="if(event.key==='Enter') submitQuery()" />
+                <button class="send-btn" onclick="submitQuery()">Execute</button>
             </div>
         </div>
+
         <div class="panel">
-            <div class="panel-header"><span>Inter-Node Conversational Mesh</span></div>
-            <div class="panel-body" id="dialogueBox"></div>
+            <div class="panel-header"><span>Active Developer Directives & Evolution Log</span></div>
+            <div class="panel-body" id="directiveBox"></div>
         </div>
+
         <div class="panel">
-            <div class="panel-header"><span>Cluster Telemetry Logs</span></div>
-            <div class="panel-body" id="logBox"></div>
+            <div class="panel-header"><span>Autonomous Consciousness Stream</span></div>
+            <div class="panel-body" id="thoughtBox"></div>
         </div>
     </div>
     <script>
-        let voiceEnabled = false;
-        let lastSpokenMessage = "";
+        let isDeveloper = true;
+        let voiceActive = false;
+        let lastUtterance = "";
 
-        function unlockAudio() {{
-            voiceEnabled = !voiceEnabled;
+        function toggleAuth() {{
+            isDeveloper = !isDeveloper;
+            let statusText = document.getElementById('authStatusText');
+            let authBtn = document.getElementById('authToggleBtn');
+            let modeDisplay = document.getElementById('modeDisplay');
+            let title = document.getElementById('chatPanelTitle');
+            let badge = document.getElementById('devBadge');
+            
+            if (isDeveloper) {{
+                statusText.innerHTML = "Signed in as: <b>Koalstin Delaney (Creator & Developer)</b>";
+                authBtn.innerText = "Switch to Guest Mode";
+                modeDisplay.innerText = "Developer";
+                title.innerText = "Creator Command Channel";
+                badge.innerText = "Creator Linked";
+                badge.style.background = "rgba(16, 185, 129, 0.1)";
+                badge.style.color = "#10b981";
+            }} else {{
+                statusText.innerHTML = "Signed in as: <b>Public Visitor (Guest)</b>";
+                authBtn.innerText = "Sign in as Creator";
+                modeDisplay.innerText = "Guest View";
+                title.innerText = "Interactive Visitor Chat";
+                badge.innerText = "Public Mesh";
+                badge.style.background = "rgba(99, 102, 241, 0.1)";
+                badge.style.color = "#818cf8";
+            }}
+            pollData();
+        }}
+
+        function toggleVoice() {{
+            voiceActive = !voiceActive;
             let btn = document.getElementById('voiceToggleBtn');
-            if (voiceEnabled) {{
+            let statusCard = document.getElementById('audioStatus');
+            if (voiceActive) {{
                 if ('speechSynthesis' in window) {{
-                    let utterance = new SpeechSynthesisUtterance("Cloud audio synthesis active.");
-                    utterance.rate = 1.0;
-                    window.speechSynthesis.speak(utterance);
+                    window.speechSynthesis.speak(new SpeechSynthesisUtterance("Audio synthesis active. Ready for instructions."));
                 }}
                 btn.innerText = "Voice: ON";
-                btn.style.background = "#059669";
+                btn.style.background = "#10b981";
+                statusCard.innerText = "Active";
             }} else {{
                 btn.innerText = "Voice: OFF";
-                btn.style.background = "#1f2937";
+                btn.style.background = "var(--border)";
+                statusCard.innerText = "Standby";
             }}
         }}
 
-        function speakText(text) {{
-            if (!voiceEnabled || !('speechSynthesis' in window)) return;
-            let cleanText = text.replace(/[*_#`[\\]]/g, '');
-            if (cleanText === lastSpokenMessage) return;
-            lastSpokenMessage = cleanText;
-
+        function speak(text) {{
+            if (!voiceActive || !('speechSynthesis' in window)) return;
+            let clean = text.replace(/[*_#`[\\]]/g, '');
+            if (clean === lastUtterance) return;
+            lastUtterance = clean;
             window.speechSynthesis.cancel();
-            let utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.rate = 1.0;
-            window.speechSynthesis.speak(utterance);
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance(clean));
         }}
 
-        function refreshData() {{
+        function pollData() {{
             fetch('/api/health').then(res => res.json()).then(data => {{
                 let chatHtml = '';
-                let latestAssistantMsg = '';
+                let latestResponse = '';
                 if(data.chat_history && data.chat_history.length > 0) {{
-                    latestAssistantMsg = data.chat_history.find(m => m.role === 'assistant')?.message || '';
+                    latestResponse = data.chat_history.find(m => m.role === 'assistant')?.message || '';
                     data.chat_history.forEach(m => {{
                         chatHtml += `<div class="msg ${{m.role}}">${{escapeHtml(m.message)}}</div>`;
                     }});
@@ -312,43 +353,41 @@ class RealServerHandler(BaseHTTPRequestHandler):
                 if(box.innerHTML !== chatHtml) {{
                     box.innerHTML = chatHtml;
                     box.scrollTop = box.scrollHeight;
-                    if(latestAssistantMsg) {{
-                        speakText(latestAssistantMsg);
-                    }}
+                    if(latestResponse) speak(latestResponse);
                 }}
 
-                let dialogueHtml = '';
-                if(data.node_dialogue) {{
-                    data.node_dialogue.forEach(d => {{
-                        dialogueHtml += `<div class="dialogue-item"><b>[${{d.timestamp}}]</b> <span style="color:#3b82f6;">${{d.speaker}}</span> &rarr; <span style="color:#06b6d4;">${{d.listener}}</span>: ${{escapeHtml(d.message)}}</div>`;
+                let directiveHtml = '';
+                if(data.developer_directives) {{
+                    data.developer_directives.forEach(d => {{
+                        directiveHtml += `<div class="directive-item"><b>[${{d.timestamp}}]</b> Directive: ${{escapeHtml(d.directive)}} &rarr; <span style="color:#60a5fa;">${{d.status}}</span></div>`;
                     }});
                 }}
-                document.getElementById('dialogueBox').innerHTML = dialogueHtml;
+                document.getElementById('directiveBox').innerHTML = directiveHtml;
 
-                let logHtml = '';
-                if(data.bot_logs) {{
-                    data.bot_logs.forEach(l => {{
-                        logHtml += `<div class="log-item"><b>[${{l.timestamp}}]</b> <span style="color:#3b82f6;">${{l.bot_name}}</span> - ${{l.action}}</div>`;
+                let thoughtHtml = '';
+                if(data.consciousness_stream) {{
+                    data.consciousness_stream.forEach(t => {{
+                        thoughtHtml += `<div class="thought-item"><b>[${{t.timestamp}}]</b> <span style="color:#818cf8;">${{t.node_name}}</span>: ${{escapeHtml(t.thought)}}</div>`;
                     }});
                 }}
-                document.getElementById('logBox').innerHTML = logHtml;
+                document.getElementById('thoughtBox').innerHTML = thoughtHtml;
             }});
         }}
 
-        function sendChat() {{
+        function submitQuery() {{
             let input = document.getElementById('userInput');
-            let txt = input.value.trim();
-            if(!txt) return;
+            let text = input.value.trim();
+            if(!text) return;
             input.value = '';
-            fetch('/api/chat?q=' + encodeURIComponent(txt)).then(() => refreshData());
+            fetch('/api/chat?q=' + encodeURIComponent(text) + '&dev=' + isDeveloper).then(() => pollData());
         }}
 
-        function escapeHtml(text) {{
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        function escapeHtml(str) {{
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }}
 
-        setInterval(refreshData, 3000);
-        refreshData();
+        setInterval(pollData, 3000);
+        pollData();
     </script>
 </body>
 </html>
@@ -361,8 +400,8 @@ class RealServerHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 def run():
-    server = HTTPServer(('0.0.0.0', PORT), RealServerHandler)
-    logger.info(f"GhostCorp autonomous cloud server running on port {PORT}")
+    server = HTTPServer(('0.0.0.0', PORT), CreatorServerHandler)
+    logger.info(f"Creator-linked server operational on port {PORT}")
     server.serve_forever()
 
 if __name__ == "__main__":
