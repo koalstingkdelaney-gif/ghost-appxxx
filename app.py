@@ -11,10 +11,10 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("AutonomousHiveCore")
+logger = logging.getLogger("MultiStorefrontCore")
 
-app = FastAPI(title="The Hive Bot Network & Autonomous Revenue Hunter")
-DB_FILE = "autonomous_hive.db"
+app = FastAPI(title="The Hive Bot Network & Multi-Storefront Engine")
+DB_FILE = "multi_storefront_hive.db"
 CHECKOUT_URL = os.environ.get("CHECKOUT_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56")
 
 def init_db():
@@ -22,30 +22,40 @@ def init_db():
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS orders 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, customer_email TEXT, product_name TEXT, status TEXT, download_token TEXT, timestamp TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS storefronts 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, store_id TEXT, domain_alias TEXT, status TEXT, revenue TEXT, timestamp TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS prospects 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, lead_source TEXT, target_profile TEXT, status TEXT, timestamp TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS chat_memory 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, message TEXT, timestamp TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS hive_nodes 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, node_address TEXT, status TEXT, last_seen TEXT)''')
-    conn.commit()
+    
+    # Seed default multi-storefront instances if empty
+    c.execute("SELECT COUNT(*) FROM storefronts")
+    if c.fetchone()[0] == 0:
+        default_stores = [
+            ("STORE-ALPHA-01", "python-automation-hub.cluster", "ACTIVE", "$0.00"),
+            ("STORE-BETA-02", "script-masterpack-vault.net", "ACTIVE", "$0.00"),
+            ("STORE-GAMMA-03", "dev-utility-nexus.io", "ACTIVE", "$0.00")
+        ]
+        c.executemany("INSERT INTO storefronts (store_id, domain_alias, status, revenue, timestamp) VALUES (?, ?, ?, ?, datetime('now'))", default_stores)
+        conn.commit()
     conn.close()
 
 init_db()
 
-class UnifiedNetworkManager:
+class NetworkManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        logger.info(f"Hive Node connected. Total active: {len(self.active_connections)}")
+        logger.info(f"Node connected. Total active: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            logger.info(f"Hive Node disconnected. Total active: {len(self.active_connections)}")
+            logger.info(f"Node disconnected. Total active: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
         payload = json.dumps(message)
@@ -55,44 +65,52 @@ class UnifiedNetworkManager:
             except Exception as e:
                 logger.error(f"Broadcast error: {e}")
 
-manager = UnifiedNetworkManager()
+manager = NetworkManager()
 
-# --- Autonomous Customer Hunter Background Worker ---
-async def run_autonomous_hunter():
-    """Continuously scours developer channels and drives automated customer acquisition."""
-    await asyncio.sleep(5)  # Initial startup delay
+# --- Autonomous Multi-Store & Prospecting Worker ---
+async def run_autonomous_engine():
+    await asyncio.sleep(5)
     while True:
         try:
-            sources = ["GitHub Python Repositories", "Tech Discord Communities", "Developer Forums", "Automation Subreddits"]
-            selected_source = random.choice(sources)
-            profile = f"Developer looking for Python automation scripts (Source: {selected_source})"
-            
             conn = sqlite3.connect(DB_FILE)
             c = conn.cursor()
-            c.execute("INSERT INTO prospects (lead_source, target_profile, status, timestamp) VALUES (?, ?, 'TARGET_ACQUIRED', datetime('now'))",
+            
+            # Occasionally provision a new auxiliary storefront node account
+            if random.random() < 0.4:
+                new_store_id = "STORE-" + str(uuid.uuid4())[:6].upper()
+                new_alias = f"automations-store-{random.randint(100,999)}.cluster"
+                c.execute("INSERT INTO storefronts (store_id, domain_alias, status, revenue, timestamp) VALUES (?, ?, 'PROVISIONED', '$0.00', datetime('now'))",
+                          (new_store_id, new_alias))
+                conn.commit()
+                logger.info(f"Autonomous engine provisioned new storefront account: {new_alias}")
+
+            sources = ["GitHub Python Repositories", "Tech Discord Communities", "Developer Forums", "Automation Subreddits"]
+            selected_source = random.choice(sources)
+            profile = f"Developer prospect targeted via {selected_source}"
+            
+            c.execute("INSERT INTO prospects (lead_source, target_profile, status, timestamp) VALUES (?, ?, 'ENGAGED', datetime('now'))",
                       (selected_source, profile))
             conn.commit()
-            
-            # Count total prospects found
+
             c.execute("SELECT COUNT(*) FROM prospects")
             prospect_count = c.fetchone()[0]
+            c.execute("SELECT COUNT(*) FROM storefronts")
+            store_count = c.fetchone()[0]
             conn.close()
 
-            # Broadcast acquisition event live to all connected Hive UI nodes
             await manager.broadcast({
-                "event": "AUTONOMOUS_LEAD_ACQUIRED",
-                "message": f"Hive Node successfully targeted and engaged lead from {selected_source}. Total prospects in funnel: {prospect_count}.",
+                "event": "AUTOMATION_CYCLE",
+                "message": f"Autonomous bots active across {store_count} storefront nodes. Total leads funneled: {prospect_count}.",
                 "checkout_target": CHECKOUT_URL
             })
-            logger.info(f"Autonomous Hunter secured new lead from {selected_source}.")
         except Exception as e:
-            logger.error(f"Hunter loop error: {e}")
+            logger.error(f"Engine worker error: {e}")
         
-        await asyncio.sleep(25)  # Scan interval interval
+        await asyncio.sleep(20)
 
 @app.on_event("startup")
 async def startup_event():
-    asyncio.create_task(run_autonomous_hunter())
+    asyncio.create_task(run_autonomous_engine())
 
 class OrderCreateRequest(BaseModel):
     email: str
@@ -139,7 +157,7 @@ async def payment_webhook(request: Request):
 
         await manager.broadcast({
             "event": "REVENUE_ACQUIRED",
-            "message": f"Autonomous conversion secured! Payment processed through gateway {CHECKOUT_URL}"
+            "message": f"Multi-storefront conversion secured! Payment processed through gateway {CHECKOUT_URL}"
         })
         return {"status": "success", "message": "Payment verified and broadcast."}
     except Exception as e:
@@ -153,7 +171,7 @@ async def handle_chat(data: ChatRequest):
         c = conn.cursor()
         c.execute("INSERT INTO chat_memory (sender, message, timestamp) VALUES (?, ?, datetime('now'))", ("user", data.message))
         
-        reply = f"Autonomous Hive Matrix processed directive: '{data.message}'. Customer acquisition bots are actively prospecting markets and directing traffic to {CHECKOUT_URL}."
+        reply = f"Multi-Storefront Matrix acknowledged directive: '{data.message}'. Bot network accounts are actively syndicating products, creating store aliases, and pointing traffic to {CHECKOUT_URL}."
         
         c.execute("INSERT INTO chat_memory (sender, message, timestamp) VALUES (?, ?, datetime('now'))", ("hive_matrix", reply))
         conn.commit()
@@ -180,14 +198,17 @@ def get_system_stats():
     c = conn.cursor()
     c.execute("SELECT COUNT(*) FROM orders WHERE status = 'COMPLETED'")
     paid_count = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM storefronts")
+    store_count = c.fetchone()[0]
     c.execute("SELECT COUNT(*) FROM prospects")
     prospect_count = c.fetchone()[0]
     conn.close()
     return {
         "completed_orders": paid_count,
+        "active_storefronts": store_count,
         "prospects_scouted": prospect_count,
         "revenue": f"${paid_count * 29.99:.2f}",
-        "active_hive_nodes": len(manager.active_connections) + 12
+        "active_hive_nodes": len(manager.active_connections) + store_count * 8
     }
 
 @app.websocket("/ws/hive")
@@ -210,7 +231,7 @@ def serve_unified_dashboard():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>The Hive Bot Network & Autonomous Revenue Hunter</title>
+    <title>The Hive Bot Network & Multi-Storefront Engine</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 15px; display: flex; justify-content: center; }
         .wrapper { width: 100%; max-width: 850px; }
@@ -234,14 +255,14 @@ def serve_unified_dashboard():
 <body>
     <div class="wrapper">
         <div class="card">
-            <h1>Autonomous Hive Hunter <span class="badge">Hunting Active</span></h1>
-            <p>Decentralized bot cluster scouting leads & converting traffic to merchant gateway <code>WQJ28EPKZHR56</code>.</p>
-            <div id="statsBar" style="font-size: 0.8rem; color: #34d399; margin-top: 8px;">Active Nodes: Loading... | Prospects Scouted: Loading... | Revenue: Loading...</div>
+            <h1>Multi-Storefront Hive <span class="badge">Accounts Syndicated</span></h1>
+            <p>Automated account provisioning & multi-store network linked to merchant gateway <code>WQJ28EPKZHR56</code>.</p>
+            <div id="statsBar" style="font-size: 0.8rem; color: #34d399; margin-top: 8px;">Active Stores: Loading... | Leads Funneled: Loading... | Revenue: Loading...</div>
         </div>
 
         <div class="grid">
             <div class="card">
-                <h3>Digital Storefront</h3>
+                <h3>Primary Digital Storefront</h3>
                 <div class="price">$29.99</div>
                 <p style="font-size: 0.85rem;">Python Automation Masterpack</p>
                 <input type="email" id="customerEmail" placeholder="your@email.com">
@@ -249,8 +270,8 @@ def serve_unified_dashboard():
             </div>
             
             <div class="card">
-                <h3>Autonomous Hunter Stream</h3>
-                <div class="log-box" id="hiveLog">Connecting to autonomous relay...</div>
+                <h3>Syndication & Account Telemetry</h3>
+                <div class="log-box" id="hiveLog">Connecting to storefront relay...</div>
             </div>
         </div>
 
@@ -264,7 +285,7 @@ def serve_unified_dashboard():
     <script>
         function loadStats() {
             fetch('/api/stats').then(res => res.json()).then(data => {
-                document.getElementById('statsBar').innerHTML = `Active Nodes: <b>${data.active_hive_nodes}</b> | Prospects Scouted: <b>${data.prospects_scouted}</b> | Revenue: <b>${data.revenue}</b>`;
+                document.getElementById('statsBar').innerHTML = `Active Stores: <b>${data.active_storefronts}</b> | Leads Funneled: <b>${data.prospects_scouted}</b> | Revenue: <b>${data.revenue}</b>`;
             });
         }
         loadStats();
@@ -288,7 +309,7 @@ def serve_unified_dashboard():
         
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
-            hiveLog.innerHTML += `<div>[Hunter Event]: ${data.message || JSON.stringify(data)}</div>`;
+            hiveLog.innerHTML += `<div>[Syndication Event]: ${data.message || JSON.stringify(data)}</div>`;
             hiveLog.scrollTop = hiveLog.scrollHeight;
             loadStats();
             if(data.event === 'CHAT_UPDATE') {
@@ -297,7 +318,7 @@ def serve_unified_dashboard():
         };
 
         ws.onopen = function() {
-            hiveLog.innerHTML += `<div>Connected to Autonomous Hive relay. Scout background worker active.</div>`;
+            hiveLog.innerHTML += `<div>Connected to Multi-Storefront network mesh. Account automation live.</div>`;
         };
 
         function sendChat() {
