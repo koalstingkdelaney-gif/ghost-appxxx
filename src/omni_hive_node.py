@@ -11,13 +11,12 @@ class OmniHiveSwarm:
     def __init__(self):
         self.active_bots = 600
         self.upgrade_target = 1000000
-        self.upgrade_count = 1  # Starting at 1 out of 1,000,000
+        self.upgrade_count = 1
         self.status = "Recursive Self-Optimization Active"
         self.memory_log = ["Omni-Matrix Hive initialized. Executing 1,000,000-stage multi-aspect evolution pipeline."]
         self.dynamic_tools = {}
         self.register_default_tools()
         
-        # Start the million-stage evolution background thread
         self.background_thread = threading.Thread(target=self._million_upgrade_loop, daemon=True)
         self.background_thread.start()
 
@@ -25,16 +24,14 @@ class OmniHiveSwarm:
         self.dynamic_tools["status"] = lambda q: f"Evolution Progress: {self.upgrade_count:,} / {self.upgrade_target:,} Upgrades. Nodes: {self.active_bots:,}."
 
     def _million_upgrade_loop(self):
-        """Continuously drives the 1,000,000 self-upgrade sequence, improving every aspect."""
         while self.upgrade_count < self.upgrade_target:
-            time.sleep(0.1) # Rapid recursive iteration
-            # Increment upgrade count and scale hardware/intelligence simultaneously
-            step = 142 # Batch acceleration
+            time.sleep(0.1)
+            step = 142
             self.upgrade_count = min(self.upgrade_target, self.upgrade_count + step)
             self.active_bots += 2
             
             if self.upgrade_count % 10000 == 0:
-                self.memory_log.append(f"EVOLUTION CHECKPOINT [{self.upgrade_count:,}/{self.upgrade_target:,}]: Enhanced memory layout, reduced latency, expanded to {self.active_bots} nodes.")
+                self.memory_log.append(f"EVOLUTION CHECKPOINT [{self.upgrade_count:,}/{self.upgrade_target:,}]: Enhanced memory layout, reduced latency, expanded to {self.active_bots:,} nodes.")
                 if len(self.memory_log) > 50:
                     self.memory_log = self.memory_log[-50:]
 
@@ -103,7 +100,6 @@ class HiveWebHandler(BaseHTTPRequestHandler):
                         .then(res => res.text())
                         .then(data => {{ document.getElementById('output').innerText = data; window.location.reload(); }});
                 }}
-                // Auto-refresh dashboard every 3 seconds to watch the progress bar fill up autonomously
                 setTimeout(() => {{ window.location.reload(); }}, 3000);
             </script>
         </body>
