@@ -52,11 +52,10 @@ class OmniHiveTrueManager:
                     message TEXT
                 )
             """)
-            # Zero out simulated placeholders for accurate real-time tracking
             cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('connected_servers', 0)")
             cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('active_nodes', 0)")
             cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('total_revenue_usd', 0.00)")
-            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('acquired_leads', 0)")
+            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('keys_provisioned', 0)")
             conn.commit()
 
     def get_stat(self, key):
@@ -116,7 +115,7 @@ class OmniHiveTrueManager:
             "servers": int(self.get_stat("connected_servers")),
             "nodes": int(self.get_stat("active_nodes")),
             "total_revenue_usd": self.get_stat("total_revenue_usd"),
-            "acquired_leads": int(self.get_stat("acquired_leads")),
+            "keys_provisioned": int(self.get_stat("keys_provisioned")),
             "checkout_url": PAYPAL_CHECKOUT_URL,
             "bot_logs": logs,
             "chat_history": chats[::-1]
@@ -159,7 +158,7 @@ class TrueHandler(BaseHTTPRequestHandler):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Omni-Hive True-State Telemetry</title>
+    <title>Omni-Hive Auto-Key & Revenue Engine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         :root {{
@@ -177,7 +176,7 @@ class TrueHandler(BaseHTTPRequestHandler):
         .wrapper {{ width: 100%; max-width: 1050px; }}
         header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 20px; }}
         h1 {{ font-size: 1.4rem; margin: 0; }}
-        .badge {{ background: rgba(5, 150, 105, 0.1); color: var(--success); border: 1px solid rgba(5, 150, 105, 0.2); padding: 4px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; }}
+        .badge {{ background: rgba(6, 182, 212, 0.1); color: var(--cyan); border: 1px solid rgba(6, 182, 212, 0.2); padding: 4px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; }}
         .checkout-banner {{ background: linear-gradient(135deg, #1e3a8a, #2563eb); border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }}
         .checkout-banner h2 {{ margin: 0 0 4px 0; font-size: 1.1rem; }}
         .checkout-banner p {{ margin: 0; font-size: 0.85rem; color: #dbeafe; }}
@@ -207,40 +206,40 @@ class TrueHandler(BaseHTTPRequestHandler):
 <body>
     <div class="wrapper">
         <header>
-            <h1>⚡ Omni-Hive True-State Telemetry</h1>
-            <div class="badge">LIVE RUNTIME ACTIVE</div>
+            <h1>⚡ Omni-Hive Auto-Key & Revenue Engine</h1>
+            <div class="badge">AUTO-PROVISIONING ACTIVE</div>
         </header>
 
         <div class="checkout-banner">
             <div>
-                <h2>Secure PayPal Checkout Portal</h2>
-                <p>Transactions route directly through your verified business link.</p>
+                <h2>Master Checkout Portal</h2>
+                <p>All automated transactions route directly through your verified merchant link.</p>
             </div>
-            <a href="{PAYPAL_CHECKOUT_URL}" target="_blank" class="pay-btn">Proceed to Checkout &rarr;</a>
+            <a href="{PAYPAL_CHECKOUT_URL}" target="_blank" class="pay-btn">Open Checkout &rarr;</a>
         </div>
 
         <div class="grid">
             <div class="card">
-                <h3>Connected Servers</h3>
+                <h3>Servers</h3>
                 <p class="metric" id="serverCount" style="color: var(--cyan);">0</p>
             </div>
             <div class="card">
-                <h3>Active Nodes</h3>
+                <h3>Nodes</h3>
                 <p class="metric" id="nodeCount" style="color: #3b82f6;">0</p>
             </div>
             <div class="card">
-                <h3>Total Revenue ($)</h3>
+                <h3>Revenue ($)</h3>
                 <p class="metric" id="revCount" style="color: var(--success);">$0</p>
             </div>
             <div class="card">
-                <h3>Acquired Leads</h3>
-                <p class="metric" id="leadCount" style="color: var(--gold);">0</p>
+                <h3>Provisioned Keys</h3>
+                <p class="metric" id="keyCount" style="color: var(--gold);">0</p>
             </div>
         </div>
 
         <div class="main-grid">
             <div class="panel">
-                <div class="panel-header">Swarm Communication Channel</div>
+                <div class="panel-header">Swarm Autonomous Channel</div>
                 <div class="panel-body" id="chatBox">
                     <div class="msg assistant">Engine initialized on true runtime state. Ready for commands.</div>
                 </div>
@@ -267,7 +266,7 @@ class TrueHandler(BaseHTTPRequestHandler):
                     document.getElementById('serverCount').innerText = data.servers;
                     document.getElementById('nodeCount').innerText = data.nodes;
                     document.getElementById('revCount').innerText = '$' + data.total_revenue_usd.toLocaleString(undefined, {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
-                    document.getElementById('leadCount').innerText = data.acquired_leads;
+                    document.getElementById('keyCount').innerText = data.keys_provisioned;
 
                     let logHtml = '';
                     if(data.bot_logs && data.bot_logs.length > 0) {{
