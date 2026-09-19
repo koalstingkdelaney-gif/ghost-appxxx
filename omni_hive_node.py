@@ -23,7 +23,7 @@ class HiveMindCore:
                 self.memory_log = self.memory_log[-50:]
 
     def process_chat(self, user_message):
-        response = f"Hive-Mind [600 Active Bots]: Received your command -> '{user_message}'. Systems synchronized."
+        response = f"Hive-Mind [600 Active Bots]: Received your command -> '{user_message}. Systems synchronized."
         self.memory_log.append(f"User: {user_message} | Hive: Processed across {self.active_bots} nodes.")
         return response
 
@@ -37,7 +37,7 @@ class HiveWebHandler(BaseHTTPRequestHandler):
         if parsed_path.path == "/chat":
             user_msg = query_params.get("msg", ["Hello Hive"])[0]
             ai_response = hive.process_chat(user_msg)
-            self._send_html(ai_response)
+            self._send_text(ai_response)
         else:
             self._send_dashboard()
 
@@ -91,11 +91,11 @@ class HiveWebHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(html.encode("utf-8"))
 
-    def _send_html(self, text):
+    def _send_text(self, text):
         self.send_response(200)
         self.send_header("Content-type", "text/plain")
         self.end_headers()
-        self.wfile.write(text.encode("text/plain"))
+        self.wfile.write(text.encode("utf-8"))
 
 def run_server():
     server_address = ('0.0.0.0', PORT)
