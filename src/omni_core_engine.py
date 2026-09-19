@@ -5,7 +5,6 @@ import time
 import json
 import traceback
 import urllib.parse
-import urllib.request
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 PORT = int(os.environ.get("PORT", 8080))
@@ -15,7 +14,7 @@ class OmniHiveSwarm:
         self.active_bots = 600
         self.upgrade_count = 1
         self.heal_count = 0
-        self.api_count = 3  # Initial built-in tools
+        self.api_count = 3
         self.status = "Recursive Self-Optimization & Dynamic API Provisioning Active"
         self.memory_log = ["Omni-Matrix Hive initialized with Autonomous API Provisioning."]
         self.repair_log = ["System operational. Monitoring state."]
@@ -57,11 +56,9 @@ class OmniHiveSwarm:
             self.repair_log = self.repair_log[-20:]
 
     def provision_api_for_task(self, user_message):
-        """Autonomous API Provisioner: Generates and registers a custom API endpoint based on goal requirements."""
         sanitized_key = "".join([c if c.isalnum() else "_" for c in user_message.lower()][:20])
         api_name = f"api_{sanitized_key}_{int(time.time()) % 1000}"
         
-        # Determine capability type
         if "weather" in user_message.lower():
             description = "Autonomous Weather & Atmospheric Data Retriever"
         elif "money" in user_message.lower() or "profit" in user_message.lower():
@@ -80,7 +77,6 @@ class OmniHiveSwarm:
             self.upgrade_count += 500
             self.active_bots += 20
             
-            # Dynamically provision a new API for this unique task
             api_key, api_desc = self.provision_api_for_task(user_message)
             
             response = f"Hive-Mind: Goal analyzed. Provisioned custom endpoint [{api_key}]. Description: {api_desc}. All systems optimized."
@@ -289,9 +285,9 @@ class HiveWebHandler(BaseHTTPRequestHandler):
                             document.getElementById('upgradeLevel').innerText = data.upgrade_count.toLocaleString();
                             document.getElementById('apiCount').innerText = data.api_count.toLocaleString();
                             document.getElementById('healCount').innerText = data.heal_count.toLocaleString();
-                            document.getElementById('logPre').innerText = data.memory_log.join('\\n');
+                            document.getElementById('logPre').innerText = data.memory_log.join('\n');
                             
-                            let apiFormatted = data.dynamic_apis.map(item => `[API: ${item[0]}]\\n -> ${item[1]}`).join('\\n\\n');
+                            let apiFormatted = data.dynamic_apis.map(item => `[API: ${item[0]}]\n -> ${item[1]}`).join('\n\n');
                             document.getElementById('apiPre').innerText = apiFormatted;
                         })
                         .catch(err => console.error("Sync error:", err));
@@ -322,7 +318,7 @@ class HiveWebHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write(html.encode("text/html" if False else "utf-8"))
+        self.wfile.write(html.encode("utf-8"))
 
     def _send_json_response(self, data):
         self.send_response(200)
