@@ -4,7 +4,6 @@ import sqlite3
 import logging
 import uuid
 import asyncio
-import random
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -14,11 +13,18 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("TieredStorefrontEngine")
+logger = logging.getLogger("MultiTierStorefront")
 
-app = FastAPI(title="Tiered Automated Storefront")
-DB_FILE = "tiered_hive.db"
-CHECKOUT_URL = os.environ.get("CHECKOUT_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56")
+app = FastAPI(title="Multi-Tier PayPal Storefront")
+DB_FILE = "storefront.db"
+
+# Map each tier to its specific PayPal payment URL (replace these with your unique PayPal button links if you have separate ones)
+PAYPAL_LINKS = {
+    "5.00": os.environ.get("PAYPAL_5_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"),
+    "10.00": os.environ.get("PAYPAL_10_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"),
+    "20.00": os.environ.get("PAYPAL_20_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"),
+    "40.00": os.environ.get("PAYPAL_40_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56")
+}
 
 SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
@@ -58,7 +64,7 @@ manager = NetworkManager()
 
 def send_fulfillment_email(to_email: str, product_name: str, amount: str, download_token: str):
     if not SMTP_USER or not SMTP_PASSWORD:
-        logger.warning("SMTP credentials not set. Skipping live email dispatch.")
+        logger.warning("SMTP credentials not set. Skipping email dispatch.")
         return False
     try:
         msg = MIMEMultipart()
@@ -68,7 +74,7 @@ def send_fulfillment_email(to_email: str, product_name: str, amount: str, downlo
 
         body = f"""Thank you for your purchase!
 
-Your payment of ${amount} has been verified through PayPal. Access your secure download package below:
+Your payment of ${amount} has been verified. Access your secure download package below:
 Product: {product_name}
 Download Token: {download_token}
 
@@ -85,10 +91,9 @@ Automated Systems Hub
         server.login(SMTP_USER, SMTP_PASSWORD)
         server.sendmail(SMTP_USER, to_email, msg.as_string())
         server.quit()
-        logger.info(f"Fulfillment email sent to {to_email}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send email: {e}")
+        logger.error(f"Email error: {e}")
         return False
 
 class OrderCreateRequest(BaseModel):
@@ -109,48 +114,16 @@ def initiate_order(data: OrderCreateRequest):
         conn.commit()
         conn.close()
 
+        target_url = PAYPAL_LINKS.get(data.price, PAYPAL_LINKS["40.00"])
+
         return {
             "status": "success",
             "order_id": order_id,
-            "checkout_url": f"{CHECKOUT_URL}?custom_id={order_id}"
+            "checkout_url": f"{target_url}?custom_id={order_id}"
         }
     except Exception as e:
-        logger.error(f"Order init error: {e}")
-        raise HTTPException(status_code=500, detail="Database error during order creation.")
-
-@app.post("/api/webhook/payment")
-async def payment_webhook(request: Request):
-    try:
-        payload = await request.json()
-        order_id = payload.get("order_id")
-        email = payload.get("email")
-
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        if order_id:
-            c.execute("SELECT customer_email, product_name, amount, download_token FROM orders WHERE order_id = ?", (order_id,))
-            row = c.fetchone()
-            c.execute("UPDATE orders SET status = 'COMPLETED' WHERE order_id = ?", (order_id,))
-        else:
-            c.execute("SELECT customer_email, product_name, amount, download_token FROM orders WHERE customer_email = ? AND status = 'PENDING'", (email,))
-            row = c.fetchone()
-            c.execute("UPDATE orders SET status = 'COMPLETED' WHERE customer_email = ? AND status = 'PENDING'", (email,))
-        
-        conn.commit()
-        conn.close()
-
-        if row:
-            cust_email, prod_name, amount, token = row
-            send_fulfillment_email(cust_email, prod_name, amount, token)
-
-        await manager.broadcast({
-            "event": "REVENUE_ACQUIRED",
-            "message": f"Tiered payment verified and product dispatched!"
-        })
-        return {"status": "success", "message": "Payment verified and fulfillment sent."}
-    except Exception as e:
-        logger.error(f"Webhook error: {e}")
-        raise HTTPException(status_code=400, detail="Invalid webhook payload.")
+        logger.error(f"Order error: {e}")
+        raise HTTPException(status_code=500, detail="Database error.")
 
 @app.get("/api/download/{token}")
 def download_product(token: str):
@@ -160,7 +133,7 @@ def download_product(token: str):
     row = c.fetchone()
     conn.close()
     if not row:
-        raise HTTPException(status_code=404, detail="Invalid or expired download token.")
+        raise HTTPException(status_code=404, detail="Invalid token.")
     
     return {
         "status": "success",
@@ -188,7 +161,7 @@ async def hive_websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            data = await websocket.receive_text()
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
@@ -198,7 +171,7 @@ def serve_dashboard():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tiered Digital Storefront</title>
+    <title>Storefront - Multiple Plans</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
         .wrapper { width: 100%; max-width: 650px; }
@@ -219,39 +192,39 @@ def serve_dashboard():
 <body>
     <div class="wrapper">
         <div class="card">
-            <h1>Tiered Storefront <span class="badge">Active</span></h1>
-            <p>Direct PayPal gateway connected to <code>WQJ28EPKZHR56</code>.</p>
+            <h1>Select Your Plan <span class="badge">Live</span></h1>
+            <p>Choose your plan below. Funds route directly to your PayPal account.</p>
             <div id="statsBar" style="font-size: 0.85rem; color: #34d399; margin-top: 8px;">Orders Completed: Loading... | Revenue: Loading...</div>
         </div>
 
         <div class="card">
-            <h3>Select Your Plan</h3>
-            <input type="email" id="customerEmail" placeholder="Enter your email address...">
+            <h3>Customer Checkout</h3>
+            <input type="email" id="customerEmail" placeholder="Enter your email address first...">
             
             <div class="tier-grid">
                 <div class="tier-card">
-                    <h4>Starter Plan</h4>
+                    <h4>Starter</h4>
                     <div class="tier-price">$5.00</div>
                     <p>Basic Utility Script Pack</p>
                     <button class="btn" onclick="checkout('Starter', '5.00', 'Basic Utility Script Pack')">Buy $5</button>
                 </div>
                 <div class="tier-card">
-                    <h4>Pro Plan</h4>
+                    <h4>Pro</h4>
                     <div class="tier-price">$10.00</div>
-                    <p>Intermediate Automation Kit</p>
+                    <p>Intermediate Kit</p>
                     <button class="btn" onclick="checkout('Pro', '10.00', 'Intermediate Automation Kit')">Buy $10</button>
                 </div>
                 <div class="tier-card">
-                    <h4>Advanced Plan</h4>
+                    <h4>Advanced</h4>
                     <div class="tier-price">$20.00</div>
-                    <p>Advanced Developer Bundle</p>
+                    <p>Advanced Bundle</p>
                     <button class="btn" onclick="checkout('Advanced', '20.00', 'Advanced Developer Bundle')">Buy $20</button>
                 </div>
                 <div class="tier-card">
                     <h4>Masterpack</h4>
-                    <div class="tier-price">$29.99</div>
-                    <p>Full Automation & Source Access</p>
-                    <button class="btn" onclick="checkout('Masterpack', '29.99', 'Python Automation Masterpack')">Buy $29.99</button>
+                    <div class="tier-price">$40.00</div>
+                    <p>Full Automation & Source</p>
+                    <button class="btn" onclick="checkout('Masterpack', '40.00', 'Python Automation Masterpack')">Buy $40</button>
                 </div>
             </div>
         </div>
@@ -280,7 +253,7 @@ def serve_dashboard():
         };
 
         ws.onopen = function() {
-            hiveLog.innerHTML += `<div>Tiered engine ready for checkout.</div>`;
+            hiveLog.innerHTML += `<div>Storefront ready.</div>`;
         };
 
         function checkout(tier, price, productName) {
