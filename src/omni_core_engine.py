@@ -14,19 +14,17 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-logger = logging.getLogger("OmniHiveAutoKeyEngine")
+logger = logging.getLogger("OmniHiveTrueEngine")
 
 PORT = int(os.environ.get("PORT", 8080))
-DB_PATH = "omni_hive_autokey.db"
+DB_PATH = "omni_hive_true.db"
 PAYPAL_CHECKOUT_URL = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"
 
-class OmniHiveAutoKeyManager:
+class OmniHiveTrueManager:
     def __init__(self):
         self._init_db()
         self.lock = threading.Lock()
-        logger.info("Omni-Hive Auto-Key Provisioning Engine initialized.")
-        # Trigger initial autonomous key check/acquisition
-        self._autonomous_key_discovery()
+        logger.info("Omni-Hive True-State Engine initialized.")
 
     def _init_db(self):
         with sqlite3.connect(DB_PATH) as conn:
@@ -35,14 +33,6 @@ class OmniHiveAutoKeyManager:
                 CREATE TABLE IF NOT EXISTS metrics (
                     key TEXT PRIMARY KEY,
                     value REAL
-                )
-            """)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS api_registry (
-                    service_name TEXT PRIMARY KEY,
-                    key_status TEXT,
-                    endpoint TEXT,
-                    last_validated TEXT
                 )
             """)
             cursor.execute("""
@@ -62,29 +52,12 @@ class OmniHiveAutoKeyManager:
                     message TEXT
                 )
             """)
-            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('connected_servers', 24)")
-            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('active_nodes', 96)")
-            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('total_revenue_usd', 1420.00)")
-            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('keys_provisioned', 5)")
+            # Zero out simulated placeholders for accurate real-time tracking
+            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('connected_servers', 0)")
+            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('active_nodes', 0)")
+            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('total_revenue_usd', 0.00)")
+            cursor.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('acquired_leads', 0)")
             conn.commit()
-
-    def _autonomous_key_discovery(self):
-        # Autonomous routine to verify or generate runtime API credentials
-        services = [
-            ("PayPal_Gateway", "ACTIVE", PAYPAL_CHECKOUT_URL),
-            ("Swarm_Node_RPC", "CONNECTED", "internal://node-cluster-96"),
-            ("AI_Inference_Mesh", "AUTO_GENERATED", "local://ollama-mistral-endpoint"),
-            ("Telemetry_Stream", "ACTIVE", "internal://stream-bus-01")
-        ]
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            for name, status, ep in services:
-                cursor.execute("""
-                    INSERT OR REPLACE INTO api_registry (service_name, key_status, endpoint, last_validated)
-                    VALUES (?, ?, ?, ?)
-                """, (name, status, ep, time.strftime("%Y-%m-%d %H:%M:%S")))
-            conn.commit()
-        self.log_bot("KeyMasterBot", "Autonomously verified and provisioned required API routes and endpoints", "SUCCESS")
 
     def get_stat(self, key):
         with sqlite3.connect(DB_PATH) as conn:
@@ -119,20 +92,13 @@ class OmniHiveAutoKeyManager:
         self.log_chat("user", prompt)
         q = prompt.lower()
 
-        if "key" in q or "api" in q or "token" in q:
-            reply = (f"🔑 **Autonomous Key Manager Active**:\n"
-                     f"The swarm automatically manages, generates, and links all required API credentials and endpoints.\n"
-                     f"- **Payment Gateway**: Linked (`WQJ28EPKZHR56`)\n"
-                     f"- **Inference Mesh**: Auto-configured\n"
-                     f"- **Node RPC**: Active")
-            self.log_bot("KeyMasterBot", "Executed autonomous key verification query", "SECURE")
-        elif "pay" in q or "buy" in q or "checkout" in q:
-            reply = (f"💳 **Secure Checkout Portal**:\n"
+        if "pay" in q or "buy" in q or "checkout" in q or "transaction" in q:
+            reply = (f"💳 **Secure Checkout Gateway**:\n"
                      f"👉 {PAYPAL_CHECKOUT_URL}")
-            self.log_bot("RevenueBot", "Dispatched checkout link", "READY")
+            self.log_bot("PaymentBot", "Provided live checkout link", "READY")
         else:
-            reply = (f"🤖 Auto-Key Directive Processed: '{prompt}'.\n"
-                     f"All systems operating autonomously. Checkout: {PAYPAL_CHECKOUT_URL}")
+            reply = (f"🤖 Runtime Directive Processed: '{prompt}'.\n"
+                     f"System operating on true runtime state. Checkout: {PAYPAL_CHECKOUT_URL}")
 
         self.log_chat("assistant", reply)
         return reply
@@ -140,29 +106,25 @@ class OmniHiveAutoKeyManager:
     def get_dashboard_data(self):
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT timestamp, bot_name, action, status FROM bot_logs ORDER BY id DESC LIMIT 12")
+            cursor.execute("SELECT timestamp, bot_name, action, status FROM bot_logs ORDER BY id DESC LIMIT 15")
             logs = [{"timestamp": r[0], "bot_name": r[1], "action": r[2], "status": r[3]} for r in cursor.fetchall()]
 
             cursor.execute("SELECT timestamp, role, message FROM chat_history ORDER BY id DESC LIMIT 20")
             chats = [{"timestamp": r[0], "role": r[1], "message": r[2]} for r in cursor.fetchall()]
 
-            cursor.execute("SELECT service_name, key_status, endpoint, last_validated FROM api_registry")
-            apis = [{"name": r[0], "status": r[1], "endpoint": r[2], "validated": r[3]} for r in cursor.fetchall()]
-
         return {
             "servers": int(self.get_stat("connected_servers")),
             "nodes": int(self.get_stat("active_nodes")),
             "total_revenue_usd": self.get_stat("total_revenue_usd"),
-            "keys_provisioned": int(self.get_stat("keys_provisioned")),
-            "api_registry": apis,
+            "acquired_leads": int(self.get_stat("acquired_leads")),
             "checkout_url": PAYPAL_CHECKOUT_URL,
             "bot_logs": logs,
             "chat_history": chats[::-1]
         }
 
-hive = OmniHiveAutoKeyManager()
+hive = OmniHiveTrueManager()
 
-class AutoKeyHandler(BaseHTTPRequestHandler):
+class TrueHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             parsed_path = urllib.parse.urlparse(self.path)
@@ -197,7 +159,7 @@ class AutoKeyHandler(BaseHTTPRequestHandler):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Omni-Hive Auto-Key & Revenue Engine</title>
+    <title>Omni-Hive True-State Telemetry</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         :root {{
@@ -212,10 +174,10 @@ class AutoKeyHandler(BaseHTTPRequestHandler):
             --cyan: #06b6d4;
         }}
         body {{ font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; justify-content: center; }}
-        .wrapper {{ width: 100%; max-width: 1100px; }}
+        .wrapper {{ width: 100%; max-width: 1050px; }}
         header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 20px; }}
         h1 {{ font-size: 1.4rem; margin: 0; }}
-        .badge {{ background: rgba(6, 182, 212, 0.1); color: var(--cyan); border: 1px solid rgba(6, 182, 212, 0.2); padding: 4px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; }}
+        .badge {{ background: rgba(5, 150, 105, 0.1); color: var(--success); border: 1px solid rgba(5, 150, 105, 0.2); padding: 4px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; }}
         .checkout-banner {{ background: linear-gradient(135deg, #1e3a8a, #2563eb); border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }}
         .checkout-banner h2 {{ margin: 0 0 4px 0; font-size: 1.1rem; }}
         .checkout-banner p {{ margin: 0; font-size: 0.85rem; color: #dbeafe; }}
@@ -226,15 +188,9 @@ class AutoKeyHandler(BaseHTTPRequestHandler):
         .card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }}
         .card h3 {{ margin: 0 0 6px 0; font-size: 0.7rem; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.05em; }}
         .metric {{ font-size: 1.2rem; font-weight: 700; margin: 0; }}
-        .api-grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }}
-        @media(max-width: 900px) {{ .api-grid {{ grid-template-columns: repeat(2, 1fr); }} }}
-        .api-card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }}
-        .api-card h4 {{ margin: 0 0 4px 0; font-size: 0.9rem; color: var(--cyan); }}
-        .api-card .status {{ font-size: 0.78rem; font-weight: 700; color: var(--success); margin: 4px 0; }}
-        .api-card p {{ font-size: 0.75rem; color: var(--text-dim); margin: 0; word-break: break-all; }}
         .main-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }}
         @media(max-width: 800px) {{ .main-grid {{ grid-template-columns: 1fr; }} }}
-        .panel {{ background: var(--surface); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; height: 380px; overflow: hidden; }}
+        .panel {{ background: var(--surface); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; height: 400px; overflow: hidden; }}
         .panel-header {{ padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-dim); background: #0d1322; }}
         .panel-body {{ flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }}
         .msg {{ padding: 10px 14px; border-radius: 8px; max-width: 85%; font-size: 0.85rem; line-height: 1.4; white-space: pre-wrap; }}
@@ -251,57 +207,53 @@ class AutoKeyHandler(BaseHTTPRequestHandler):
 <body>
     <div class="wrapper">
         <header>
-            <h1>⚡ Omni-Hive Auto-Key & Revenue Engine</h1>
-            <div class="badge">AUTO-PROVISIONING ACTIVE</div>
+            <h1>⚡ Omni-Hive True-State Telemetry</h1>
+            <div class="badge">LIVE RUNTIME ACTIVE</div>
         </header>
 
         <div class="checkout-banner">
             <div>
-                <h2>Master Checkout Portal</h2>
-                <p>All automated transactions route directly through your verified merchant link.</p>
+                <h2>Secure PayPal Checkout Portal</h2>
+                <p>Transactions route directly through your verified business link.</p>
             </div>
-            <a href="{PAYPAL_CHECKOUT_URL}" target="_blank" class="pay-btn">Open Checkout &rarr;</a>
+            <a href="{PAYPAL_CHECKOUT_URL}" target="_blank" class="pay-btn">Proceed to Checkout &rarr;</a>
         </div>
 
         <div class="grid">
             <div class="card">
-                <h3>Servers</h3>
+                <h3>Connected Servers</h3>
                 <p class="metric" id="serverCount" style="color: var(--cyan);">0</p>
             </div>
             <div class="card">
-                <h3>Nodes</h3>
+                <h3>Active Nodes</h3>
                 <p class="metric" id="nodeCount" style="color: #3b82f6;">0</p>
             </div>
             <div class="card">
-                <h3>Revenue ($)</h3>
+                <h3>Total Revenue ($)</h3>
                 <p class="metric" id="revCount" style="color: var(--success);">$0</p>
             </div>
             <div class="card">
-                <h3>Provisioned Keys</h3>
-                <p class="metric" id="keyCount" style="color: var(--gold);">0</p>
+                <h3>Acquired Leads</h3>
+                <p class="metric" id="leadCount" style="color: var(--gold);">0</p>
             </div>
-        </div>
-
-        <div class="api-grid" id="apiGrid">
-            <!-- Dynamically populated API registry -->
         </div>
 
         <div class="main-grid">
             <div class="panel">
-                <div class="panel-header">Swarm Autonomous Channel</div>
+                <div class="panel-header">Swarm Communication Channel</div>
                 <div class="panel-body" id="chatBox">
-                    <div class="msg assistant">Auto-key manager active. All API routes and endpoints provisioned dynamically.</div>
+                    <div class="msg assistant">Engine initialized on true runtime state. Ready for commands.</div>
                 </div>
                 <div class="chat-input-area">
-                    <input type="text" id="userInput" placeholder="Ask about API keys or status..." onkeydown="if(event.key==='Enter') sendChatMessage()" />
+                    <input type="text" id="userInput" placeholder="Send directive to swarm..." onkeydown="if(event.key==='Enter') sendChatMessage()" />
                     <button onclick="sendChatMessage()">Send</button>
                 </div>
             </div>
 
             <div class="panel">
-                <div class="panel-header">Autonomous Provisioning Logs</div>
+                <div class="panel-header">Real-Time Event Logs</div>
                 <div class="panel-body" id="botLogBox">
-                    <pre style="color: var(--text-dim); font-size: 0.75rem;">Monitoring API keys and endpoints...</pre>
+                    <pre style="color: var(--text-dim); font-size: 0.75rem;">Listening for runtime telemetry...</pre>
                 </div>
             </div>
         </div>
@@ -315,25 +267,15 @@ class AutoKeyHandler(BaseHTTPRequestHandler):
                     document.getElementById('serverCount').innerText = data.servers;
                     document.getElementById('nodeCount').innerText = data.nodes;
                     document.getElementById('revCount').innerText = '$' + data.total_revenue_usd.toLocaleString(undefined, {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
-                    document.getElementById('keyCount').innerText = data.keys_provisioned;
-
-                    let apiHtml = '';
-                    if(data.api_registry) {{
-                        data.api_registry.forEach(api => {{
-                            apiHtml += `<div class="api-card">
-                                <h4>${{api.name}}</h4>
-                                <div class="status">● ${{api.status}}</div>
-                                <p>${{api.endpoint}}</p>
-                            </div>`;
-                        }});
-                    }}
-                    document.getElementById('apiGrid').innerHTML = apiHtml;
+                    document.getElementById('leadCount').innerText = data.acquired_leads;
 
                     let logHtml = '';
                     if(data.bot_logs && data.bot_logs.length > 0) {{
                         data.bot_logs.forEach(l => {{
-                            logHtml += `<div class="bot-log-item"><b>[${{l.timestamp}}]</b> <span style="color: var(--cyan);">${{l.bot_name}}</span><br>↳ ${{l.action}} [<span style="color: var(--success);">${{l.status}}</span>]</div>`;
+                            logHtml += `<div class="bot-log-item"><b>[${{l.timestamp}}]</b> <span style="color: #0070ba;">${{l.bot_name}}</span><br>↳ ${{l.action}} [<span style="color: var(--success);">${{l.status}}</span>]</div>`;
                         }});
+                    }} else {{
+                        logHtml = `<pre style="color: var(--text-dim); font-size: 0.75rem;">No events logged yet.</pre>`;
                     }}
                     document.getElementById('botLogBox').innerHTML = logHtml;
                 }})
@@ -347,7 +289,6 @@ class AutoKeyHandler(BaseHTTPRequestHandler):
                     let box = document.getElementById('chatBox');
                     let html = '';
                     if(data.chat_history && data.chat_history.length > 0) {{
-                        data.chat_history.length = Math.min(data.chat_history.length, 10);
                         data.chat_history.forEach(m => {{
                             html += `<div class="msg ${{m.role}}">${{escapeHtml(m.message)}}</div>`;
                         }});
@@ -398,8 +339,8 @@ class AutoKeyHandler(BaseHTTPRequestHandler):
 
 def run_server():
     server_address = ('0.0.0.0', PORT)
-    httpd = HTTPServer(server_address, AutoKeyHandler)
-    logger.info(f"Omni-Hive auto-key server running on port {PORT}")
+    httpd = HTTPServer(server_address, TrueHandler)
+    logger.info(f"Omni-Hive true-state server running on port {PORT}")
     httpd.serve_forever()
 
 if __name__ == '__main__':
