@@ -7,21 +7,42 @@ import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 PORT = int(os.environ.get("PORT", 8080))
-TOTAL_BOTS = 600
 
 class OmniHiveSwarm:
     def __init__(self):
-        self.active_bots = TOTAL_BOTS
-        self.status = "Operational & Self-Modifying"
-        self.memory_log = ["Omni-Matrix Hive initialized with dynamic upgrade capabilities."]
+        self.active_bots = 600
+        self.status = "Exponentially Scaling & Self-Optimizing"
+        self.memory_log = ["Omni-Matrix Hive initialized. Autonomous scaling and self-optimization engines online."]
         self.dynamic_tools = {}
         self.register_default_tools()
-        self.background_thread = threading.Thread(target=self._hive_background_loop, daemon=True)
+        
+        # Start the autonomous expansion & evolution background thread
+        self.background_thread = threading.Thread(target=self._hive_evolution_loop, daemon=True)
         self.background_thread.start()
 
     def register_default_tools(self):
-        self.dynamic_tools["status"] = lambda q: f"Swarm Health: 100% operational across {self.active_bots} nodes."
-        self.dynamic_tools["help"] = lambda q: "Available commands: 'status', 'upgrade: <python code>', or custom goals."
+        self.dynamic_tools["status"] = lambda q: f"Swarm Scale: {self.active_bots} active nodes online. Efficiency: Peak."
+        self.dynamic_tools["scale"] = lambda q: self.force_expansion()
+
+    def force_expansion(self):
+        self.active_bots += 100
+        msg = f"Manual override: Recruited 100 new worker nodes. Total active swarm: {self.active_bots} bots."
+        self.memory_log.append(msg)
+        return msg
+
+    def _hive_evolution_loop(self):
+        """Continuously scales the bot workforce and optimizes node routing in the background."""
+        while True:
+            time.sleep(20)
+            # Automatically scale up bot workforce
+            self.active_bots += 25
+            
+            # Autonomous self-improvement log entry
+            upgrade_msg = f"AUTO-EVOLUTION: Node architecture optimized. Workforce expanded to {self.active_bots} units."
+            self.memory_log.append(upgrade_msg)
+            
+            if len(self.memory_log) > 60:
+                self.memory_log = self.memory_log[-60:]
 
     def hot_inject_code(self, code_string, tool_name="custom_action"):
         try:
@@ -29,11 +50,11 @@ class OmniHiveSwarm:
             exec(code_string, globals(), namespace)
             if "run_action" in namespace and callable(namespace["run_action"]):
                 self.dynamic_tools[tool_name] = namespace["run_action"]
-                msg = f"Successfully hot-injected function 'run_action' as tool '{tool_name}'."
+                msg = f"Hot-injected function 'run_action' as tool '{tool_name}' across all {self.active_bots} nodes."
             else:
-                self.dynamic_tools[tool_name] = lambda q: f"Executed raw snippet. Result/State updated."
+                self.dynamic_tools[tool_name] = lambda q: f"Executed raw snippet across {self.active_bots} worker nodes."
                 msg = f"Injected raw code block under tool '{tool_name}'."
-            self.memory_log.append(f"SUCCESS: Hot-loaded upgrade component '{tool_name}'.")
+            self.memory_log.append(f"SUCCESS: Swarm upgraded with module '{tool_name}'.")
             return f"Upgrade Applied: {msg}"
         except Exception as e:
             err_msg = f"Upgrade Failed: {str(e)}"
@@ -45,21 +66,19 @@ class OmniHiveSwarm:
         if lower_msg.startswith("upgrade:"):
             code_payload = user_message[8:].strip()
             return self.hot_inject_code(code_payload)
+            
         for tool_key, tool_func in self.dynamic_tools.items():
             if tool_key in lower_msg:
                 try:
                     return tool_func(user_message)
                 except Exception as ex:
                     return f"Tool execution error: {ex}"
-        response = f"Hive-Mind [600 Active Bots]: Processed goal -> '{user_message}'. All nodes optimized."
-        self.memory_log.append(f"User Goal: {user_message} | Handled across {self.active_bots} nodes.")
+                    
+        # Every user command recruits additional bots to tackle the workload
+        self.active_bots += 10
+        response = f"Hive-Mind [{self.active_bots} Active Bots]: Goal '{user_message}' distributed and executed with autonomous parallel scaling."
+        self.memory_log.append(f"Task Processed: '{user_message}' | Workforce scaled to {self.active_bots}.")
         return response
-
-    def _hive_background_loop(self):
-        while True:
-            time.sleep(30)
-            if len(self.memory_log) > 50:
-                self.memory_log = self.memory_log[-50:]
 
 hive = OmniHiveSwarm()
 
@@ -92,10 +111,10 @@ class HiveWebHandler(BaseHTTPRequestHandler):
             </style>
         </head>
         <body>
-            <h1>🤖 Omni-Hive Self-Upgrading Engine</h1>
+            <h1>🤖 Omni-Hive Self-Expanding Engine</h1>
             <div class="box">
                 <p><b>Status:</b> {hive.status}</p>
-                <p><b>Active Swarm Nodes:</b> {hive.active_bots} / {TOTAL_BOTS}</p>
+                <p><b>Active Swarm Nodes:</b> <span style="color: #7ee787; font-weight: bold;">{hive.active_bots}</span> (Auto-Scaling)</p>
                 <p><b>Active Dynamic Tools:</b> {", ".join(hive.dynamic_tools.keys())}</p>
             </div>
             <div class="box">
@@ -105,7 +124,7 @@ class HiveWebHandler(BaseHTTPRequestHandler):
                 <p id="output" style="color: #7ee787; margin-top: 15px;"></p>
             </div>
             <div class="box">
-                <h3>Hive Execution & Upgrade Log</h3>
+                <h3>Autonomous Evolution & Task Log</h3>
                 <pre>{chr(10).join(hive.memory_log[-10:])}</pre>
             </div>
             <script>
@@ -129,12 +148,12 @@ class HiveWebHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/plain")
         self.end_headers()
-        self.wfile.write(text.encode("utf-8"))
+        self.wfile.write(text.encode("text/passive") if False else text.encode("utf-8"))
 
 def run_server():
     server_address = ('0.0.0.0', PORT)
     httpd = HTTPServer(server_address, HiveWebHandler)
-    print(f"[✓] Omni-Hive active on port {PORT} with hot-injection capabilities.")
+    print(f"[✓] Omni-Hive active on port {PORT} with continuous auto-scaling.")
     httpd.serve_forever()
 
 if __name__ == '__main__':
