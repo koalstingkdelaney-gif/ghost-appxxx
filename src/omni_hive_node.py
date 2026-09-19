@@ -51,11 +51,11 @@ class HiveWebHandler(BaseHTTPRequestHandler):
         if parsed_path.path == "/chat":
             user_msg = query_params.get("msg", ["Hello Hive"])[0]
             ai_response = hive.process_chat(user_msg)
-            self._send_text(ai_response)
+            self._send_text_response(ai_response)
         else:
-            self._send_dashboard()
+            self._send_dashboard_response()
 
-    def _send_dashboard(self):
+    def _send_dashboard_response(self):
         progress_pct = (hive.upgrade_count / hive.upgrade_target) * 100
         html = f"""
         <!DOCTYPE html>
@@ -110,9 +110,9 @@ class HiveWebHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(html.encode("utf-8"))
 
-    def _send_text(self, text):
+    def _send_text_response(self, text):
         self.send_response(200)
-        self.send_header("Content-type", "text/plain")
+        self.send_header("Content-type", "text/plain; charset=utf-8")
         self.end_headers()
         self.wfile.write(text.encode("utf-8"))
 
