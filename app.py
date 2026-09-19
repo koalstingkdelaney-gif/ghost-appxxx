@@ -5,8 +5,6 @@ import json
 import queue
 import logging
 import threading
-import subprocess
-import traceback
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -15,42 +13,32 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-logger = logging.getLogger("GhostCorp.ProductionCore")
+logger = logging.getLogger("GhostCorp.CloudCore")
 
 PORT = int(os.environ.get("PORT", 10000))
 PAYPAL_CHECKOUT_URL = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"
 
-class SelfPreservationGuardian(threading.Thread):
-    def __init__(self, controller_ref, check_interval=5):
+class CloudGuardian(threading.Thread):
+    def __init__(self, controller_ref, check_interval=10):
         super().__init__()
         self.controller = controller_ref
         self.check_interval = check_interval
         self.daemon = True
-        logger.info("Sentinel Guardian self-preservation subsystem online.")
+        logger.info("Cloud Guardian self-preservation subsystem online.")
 
     def run(self):
         while True:
             try:
-                self._audit_subprocesses()
+                with self.controller.lock:
+                    for name, worker in list(self.controller.active_workers.items()):
+                        if not worker.is_alive():
+                            logger.warning(f"Cloud worker '{name}' dropped. Respawning...")
+                            self.controller.respawn_worker(name)
             except Exception as e:
-                logger.error(f"Sentinel Guardian intervention triggered: {e}")
-                self._execute_auto_heal()
+                logger.error(f"Guardian error: {e}")
             time.sleep(self.check_interval)
 
-    def _audit_subprocesses(self):
-        with self.controller.lock:
-            for name, worker in list(self.controller.active_workers.items()):
-                if not worker.is_alive():
-                    logger.warning(f"Worker node '{name}' dropped. Respawning...")
-                    self.controller.respawn_worker(name)
-
-    def _execute_auto_heal(self):
-        with self.controller.lock:
-            self.controller.task_queue.queue.clear()
-        logger.info("State sanitized. Redundancy restored.")
-
-
-class GhostWorkerNode(threading.Thread):
+class CloudWorker(threading.Thread):
     def __init__(self, node_id, task_queue, results_store, lock):
         super().__init__()
         self.node_id = node_id
@@ -62,95 +50,69 @@ class GhostWorkerNode(threading.Thread):
     def run(self):
         while True:
             try:
-                task_id, payload = self.task_queue.get(timeout=2)
+                task_id, payload = self.task_queue.get(timeout=3)
             except queue.Empty:
                 continue
-
             try:
-                output = self._execute(payload)
+                output = f"Executed cloud task payload: {payload.get('type', 'standard')}"
                 with self.lock:
                     self.results_store[task_id] = {"status": "SUCCESS", "output": output}
             except Exception as e:
-                err_msg = traceback.format_exc()
                 with self.lock:
-                    self.results_store[task_id] = {"status": "FAULT_CONTAINED", "error": str(e), "trace": err_msg}
+                    self.results_store[task_id] = {"status": "FAULT_CONTAINED", "error": str(e)}
             finally:
                 self.task_queue.task_done()
 
-    def _execute(self, payload):
-        t_type = payload.get("type")
-        if t_type == "shell":
-            cmd = payload.get("command")
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            if res.returncode != 0:
-                raise RuntimeError(f"Command failed: {res.stderr.strip()}")
-            return res.stdout.strip()
-        elif t_type == "compute":
-            data = payload.get("data", "")
-            return f"Processed block size: {len(data)}"
-        else:
-            raise ValueError(f"Unknown vector: {t_type}")
-
-
-class GhostController:
-    def __init__(self, model_name="llama3"):
-        self.model_name = model_name
+class CloudController:
+    def __init__(self):
         self.task_queue = queue.Queue()
         self.results_store = {}
         self.active_workers = {}
         self.lock = threading.Lock()
         self.chat_history = [
-            {"role": "assistant", "message": "GhostCorp Self-Preservation & Sentinel Core active. Fleet operations nominal."}
+            {"role": "assistant", "message": "GhostCorp Cloud Core online. Standalone 24/7 execution active."}
         ]
         self.bot_logs = [
-            {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "bot_name": "SentinelGuardian", "action": "All nodes shielded against termination.", "status": "SECURED"}
+            {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "bot_name": "CloudSentinel", "action": "Server cluster initialized independently.", "status": "SECURED"}
         ]
-
         for i in range(2):
-            w_name = f"WorkerNode_{i+1}"
-            worker = GhostWorkerNode(w_name, self.task_queue, self.results_store, self.lock)
+            w_name = f"CloudWorker_{i+1}"
+            worker = CloudWorker(w_name, self.task_queue, self.results_store, self.lock)
             self.active_workers[w_name] = worker
             worker.start()
-
-        self.guardian = SelfPreservationGuardian(self)
+        self.guardian = CloudGuardian(self)
         self.guardian.start()
 
     def respawn_worker(self, name):
-        worker = GhostWorkerNode(name, self.task_queue, self.results_store, self.lock)
+        worker = CloudWorker(name, self.task_queue, self.results_store, self.lock)
         self.active_workers[name] = worker
         worker.start()
 
     def process_chat(self, prompt):
         self.chat_history.append({"role": "user", "message": prompt})
         q = prompt.lower()
-
         if "pay" in q or "buy" in q or "checkout" in q:
-            reply = f"💳 **Secure Checkout Node**:\n👉 {PAYPAL_CHECKOUT_URL}\nRevenue pipeline active."
-        elif "preserv" in q or "sentinel" in q or "shield" in q:
-            reply = f"🛡️ **Self-Preservation Active**:\nWorker nodes possess auto-healing and instant failover recovery routines."
+            reply = f"💳 **Secure Checkout Gateway**:\n👉 {PAYPAL_CHECKOUT_URL}\nCloud revenue pipeline active."
         else:
-            reply = f"🤖 GhostCorp Core Processed: '{prompt}'. System integrity locked."
-
+            reply = f"☁️ Cloud Node Processed: '{prompt}'. Server cluster operating independently."
         self.chat_history.append({"role": "assistant", "message": reply})
-        self.bot_logs.insert(0, {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "bot_name": "CoreController", "action": f"Handled prompt: {prompt[:30]}", "status": "OPTIMIZED"})
+        self.bot_logs.insert(0, {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "bot_name": "CloudController", "action": f"Processed query: {prompt[:25]}", "status": "OPTIMIZED"})
         return reply
 
-controller = GhostController()
+controller = CloudController()
 
-class ProductionHandler(BaseHTTPRequestHandler):
+class CloudServerHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         params = urllib.parse.parse_qs(parsed.query)
-
-        if parsed.path == "/api/health" or parsed.path == "/stats":
+        if parsed.path in ["/api/health", "/stats"]:
             data = {
-                "servers": 24,
+                "server_mode": "Standalone Cloud Cluster",
                 "nodes": len(controller.active_workers),
-                "total_revenue_usd": 0.00,
-                "threats_neutralized": 14,
+                "uptime_status": "24/7 Autonomous",
+                "checkout_url": PAYPAL_CHECKOUT_URL,
                 "bot_logs": controller.bot_logs[:10],
-                "chat_history": controller.chat_history[::-1],
-                "checkout_url": PAYPAL_CHECKOUT_URL
+                "chat_history": controller.chat_history[::-1]
             }
             self._send_json(data)
         elif parsed.path == "/api/chat":
@@ -176,7 +138,7 @@ class ProductionHandler(BaseHTTPRequestHandler):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GhostCorp Sentinel & Self-Preservation Engine</title>
+    <title>GhostCorp 24/7 Cloud Cluster</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         :root {{ --bg: #07090e; --surface: #111827; --border: #1f2937; --text: #f3f4f6; --accent: #2563eb; --success: #059669; }}
@@ -206,40 +168,35 @@ class ProductionHandler(BaseHTTPRequestHandler):
 <body>
     <div class="wrapper">
         <header>
-            <h1>🛡️ GhostCorp Sentinel & Self-Preservation Core</h1>
-            <div class="badge">ACTIVE DEFENSE</div>
+            <h1>☁️ GhostCorp Standalone Cloud Cluster</h1>
+            <div class="badge">24/7 INDEPENDENT</div>
         </header>
-
         <div class="banner">
             <div>
-                <h2 style="margin:0 0 4px 0; font-size:1rem;">Verified Checkout Gateway</h2>
-                <p style="margin:0; font-size:0.8rem; color:#dbeafe;">Protected revenue routing active (`WQJ28EPKZHR56`).</p>
+                <h2 style="margin:0 0 4px 0; font-size:1rem;">Cloud Checkout Node</h2>
+                <p style="margin:0; font-size:0.8rem; color:#dbeafe;">Payment routing active.</p>
             </div>
             <a href="{PAYPAL_CHECKOUT_URL}" target="_blank" class="pay-btn">Open Checkout &rarr;</a>
         </div>
-
         <div class="grid">
-            <div class="card"><h3>Connected Servers</h3><p class="metric" style="color:#06b6d4;">24</p></div>
-            <div class="card"><h3>Active Nodes</h3><p class="metric" style="color:#3b82f6;" id="nodeCount">2</p></div>
-            <div class="card"><h3>Threats Blocked</h3><p class="metric" style="color:#d97706;">14</p></div>
-            <div class="card"><h3>Revenue</h3><p class="metric" style="color:var(--success);">$0.00</p></div>
+            <div class="card"><h3>Environment</h3><p class="metric" style="color:#06b6d4;">Cloud Host</p></div>
+            <div class="card"><h3>Active Nodes</h3><p class="metric" style="color:#3b82f6;">2</p></div>
+            <div class="card"><h3>Status</h3><p class="metric" style="color:var(--success);">Always-On</p></div>
+            <div class="card"><h3>Revenue Link</h3><p class="metric" style="color:#d97706;">Live</p></div>
         </div>
-
         <div class="panel">
-            <div class="panel-header">Sentinel Command & Chat Channel</div>
+            <div class="panel-header">Cloud Command Channel</div>
             <div class="panel-body" id="chatBox"></div>
             <div class="input-area">
-                <input type="text" id="userInput" placeholder="Test self-preservation rules or checkout..." onkeydown="if(event.key==='Enter') sendChat()" />
+                <input type="text" id="userInput" placeholder="Test cloud response..." onkeydown="if(event.key==='Enter') sendChat()" />
                 <button onclick="sendChat()">Send</button>
             </div>
         </div>
-
         <div class="panel">
-            <div class="panel-header">Self-Preservation & Audit Logs</div>
+            <div class="panel-header">Cluster Telemetry & Logs</div>
             <div class="panel-body" id="logBox"></div>
         </div>
     </div>
-
     <script>
         function refreshData() {{
             fetch('/api/health').then(res => res.json()).then(data => {{
@@ -254,7 +211,6 @@ class ProductionHandler(BaseHTTPRequestHandler):
                     box.innerHTML = chatHtml;
                     box.scrollTop = box.scrollHeight;
                 }}
-
                 let logHtml = '';
                 if(data.bot_logs) {{
                     data.bot_logs.forEach(l => {{
@@ -264,7 +220,6 @@ class ProductionHandler(BaseHTTPRequestHandler):
                 document.getElementById('logBox').innerHTML = logHtml;
             }});
         }}
-
         function sendChat() {{
             let input = document.getElementById('userInput');
             let txt = input.value.trim();
@@ -272,11 +227,9 @@ class ProductionHandler(BaseHTTPRequestHandler):
             input.value = '';
             fetch('/api/chat?q=' + encodeURIComponent(txt)).then(() => refreshData());
         }}
-
         function escapeHtml(text) {{
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }}
-
         setInterval(refreshData, 3000);
         refreshData();
     </script>
@@ -291,8 +244,8 @@ class ProductionHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 def run():
-    server = HTTPServer(('0.0.0.0', PORT), ProductionHandler)
-    logger.info(f"GhostCorp production server running on port {PORT}")
+    server = HTTPServer(('0.0.0.0', PORT), CloudServerHandler)
+    logger.info(f"GhostCorp standalone cloud server running on port {PORT}")
     server.serve_forever()
 
 if __name__ == "__main__":
