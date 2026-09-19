@@ -12,7 +12,7 @@ from pydantic import BaseModel
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("OmniHiveEngine")
 
-app = FastAPI(title="Omni-Hive Real-Data Engine")
+app = FastAPI(title="Omni-Hive Engine")
 DB_FILE = "storefront.db"
 
 PAYPAL_LINKS = {
@@ -49,12 +49,10 @@ class NetworkManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        log_system_event("NetworkManager", f"Client peer connected. Total: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            log_system_event("NetworkManager", f"Client peer disconnected. Total: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
         payload = json.dumps(message)
@@ -141,37 +139,40 @@ async def hive_websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 @app.get("/", response_class=HTMLResponse)
-def serve_dashboard():
-    return """<!DOCTYPE html>
+def serve_dashboard(request: Request):
+    # Check if visitor is using the customer store link (e.g., yoursite.com/?store=true)
+    is_customer_view = request.query_params.get("store") == "true"
+    
+    return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Omni-Hive Engine</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .wrapper { width: 100%; max-width: 750px; }
-        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        h1 { font-size: 1.3rem; margin-top: 0; color: #fff; display: flex; justify-content: space-between; align-items: center; }
-        .badge { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; }
-        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; text-align: center; }
-        .metric-card { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; }
-        .metric-val { font-size: 1.2rem; font-weight: 700; color: #34d399; margin-top: 5px; }
-        .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        .tier-card { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 15px; text-align: center; }
-        .tier-price { font-size: 1.3rem; font-weight: 700; color: #34d399; margin: 8px 0; }
-        p { color: #9ca3af; line-height: 1.3; font-size: 0.85rem; }
-        input, button, textarea { width: 100%; padding: 10px; margin-top: 8px; background: #020617; border: 1px solid #1e293b; color: #fff; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; outline: none; }
-        input:focus, textarea:focus { border-color: #6366f1; }
-        .btn { background: #6366f1; font-weight: 600; cursor: pointer; border: none; }
-        .btn:hover { background: #4f46e5; }
-        .log-box { background: #020617; border: 1px solid #1e293b; padding: 10px; height: 140px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #60a5fa; border-radius: 6px; margin-top: 10px; }
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; }}
+        .wrapper {{ width: 100%; max-width: 750px; }}
+        .card {{ background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }}
+        h1 {{ font-size: 1.3rem; margin-top: 0; color: #fff; display: flex; justify-content: space-between; align-items: center; }}
+        .badge {{ background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; }}
+        .metrics-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; text-align: center; }}
+        .metric-card {{ background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; }}
+        .metric-val {{ font-size: 1.2rem; font-weight: 700; color: #34d399; margin-top: 5px; }}
+        .tier-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }}
+        .tier-card {{ background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 15px; text-align: center; }}
+        .tier-price {{ font-size: 1.3rem; font-weight: 700; color: #34d399; margin: 8px 0; }}
+        p {{ color: #9ca3af; line-height: 1.3; font-size: 0.85rem; }}
+        input, button, textarea {{ width: 100%; padding: 10px; margin-top: 8px; background: #020617; border: 1px solid #1e293b; color: #fff; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; outline: none; }}
+        input:focus, textarea:focus {{ border-color: #6366f1; }}
+        .btn {{ background: #6366f1; font-weight: 600; cursor: pointer; border: none; }}
+        .btn:hover {{ background: #4f46e5; }}
+        .log-box {{ background: #020617; border: 1px solid #1e293b; padding: 10px; height: 140px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #60a5fa; border-radius: 6px; margin-top: 10px; }}
     </style>
 </head>
 <body>
     <div class="wrapper">
         <div class="card">
-            <h1>Omni-Hive Engine <span class="badge">Online</span></h1>
-            <p>Live database tracking and active peer telemetry.</p>
+            <h1>Omni-Hive Engine <span class="badge">{'Customer Portal' if is_customer_view else 'Owner Telemetry'}</span></h1>
+            <p>{'Secure client procurement gateway.' if is_customer_view else 'Admin control panel. Checkout options are hidden in this view.'}</p>
             
             <div class="metrics-grid">
                 <div class="metric-card"><div>Active Peers</div><div class="metric-val" id="valNodes">-</div></div>
@@ -180,12 +181,8 @@ def serve_dashboard():
             </div>
         </div>
 
-        <div class="card">
-            <h3>System Command Console</h3>
-            <textarea id="directiveInput" rows="2" placeholder="Enter system command...">Run system diagnosis</textarea>
-            <button class="btn" onclick="sendDirective()">Execute Command</button>
-        </div>
-
+        {"<!-- Customer Checkout Section (Only visible when ?store=true is used) -->" if is_customer_view else ""}
+        {'''
         <div class="card">
             <h3>Verified Merchant Checkout</h3>
             <input type="email" id="customerEmail" placeholder="Enter your email address...">
@@ -217,6 +214,13 @@ def serve_dashboard():
                 </div>
             </div>
         </div>
+        ''' if is_customer_view else ""}
+
+        <div class="card">
+            <h3>System Command Console</h3>
+            <textarea id="directiveInput" rows="2" placeholder="Enter system command...">Run system diagnosis</textarea>
+            <button class="btn" onclick="sendDirective()">Execute Command</button>
+        </div>
 
         <div class="card">
             <h3>Live Application Event Log</h3>
@@ -224,69 +228,69 @@ def serve_dashboard():
         </div>
     </div>
     <script>
-        function loadStats() {
-            fetch('/api/stats').then(res => res.json()).then(data => {
+        function loadStats() {{
+            fetch('/api/stats').then(res => res.json()).then(data => {{
                 document.getElementById('valNodes').innerText = data.active_nodes;
                 document.getElementById('valRev').innerText = data.revenue;
                 document.getElementById('valOrders').innerText = data.completed_orders;
 
                 let logHTML = "";
-                if(data.logs && data.logs.length > 0) {
-                    data.logs.forEach(l => {
-                        logHTML += `<div>[${l.timestamp}] ${l.source} ↳ ${l.message}</div>`;
-                    });
-                } else {
+                if(data.logs && data.logs.length > 0) {{
+                    data.logs.forEach(l => {{
+                        logHTML += `<div>[${{l.timestamp}}] ${{l.source}} ↳ ${{l.message}}</div>`;
+                    }});
+                }} else {{
                     logHTML = "<div>No logs recorded yet.</div>";
-                }
+                }}
                 document.getElementById('hiveLog').innerHTML = logHTML;
-            });
-        }
+            }});
+        }}
         
         loadStats();
         setInterval(loadStats, 3000);
 
         const ws = new WebSocket((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/hive');
-        ws.onmessage = function(event) {
+        ws.onmessage = function(event) {{
             loadStats();
-        };
+        }};
 
-        function sendDirective() {
+        function sendDirective() {{
             const directive = document.getElementById('directiveInput').value.trim();
             if(!directive) return;
 
-            fetch('/api/directive', {
+            fetch('/api/directive', {{
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ directive })
-            })
+                headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify({{ directive }})
+            }})
             .then(res => res.json())
-            .then(() => {
+            .then(() => {{
                 document.getElementById('directiveInput').value = "";
                 loadStats();
-            });
-        }
+            }});
+        }}
 
-        function checkout(tier, price, productName) {
+        function checkout(tier, price, productName) {{
             const email = document.getElementById('customerEmail').value.trim();
-            if(!email || !email.includes('@')) {
+            if(!email || !email.includes('@')) {{
                 alert('Please enter a valid email address first.');
                 return;
-            }
+            }}
 
-            fetch('/api/orders/initiate', {
+            fetch('/api/orders/initiate', {{
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, tier, price, product_name: productName })
-            })
+                headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify({{ email, tier, price, product_name: productName }})
+            }})
             .then(res => res.json())
-            .then(data => {
-                if(data.checkout_url) {
+            .then(data => {{
+                if(data.checkout_url) {{
                     window.location.href = data.checkout_url;
-                } else {
+                }} else {{
                     window.location.href = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56";
-                }
-            });
-        }
+                }}
+            }});
+        }}
     </script>
 </body>
 </html>
