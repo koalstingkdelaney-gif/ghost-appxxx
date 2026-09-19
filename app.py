@@ -15,7 +15,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-logger = logging.getLogger("GhostCorp.MultiAgentSwarm")
+logger = logging.getLogger("GhostCorp.MobileCluster")
 
 PORT = int(os.environ.get("PORT", 10000))
 PAYPAL_CHECKOUT_URL = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56"
@@ -70,16 +70,12 @@ def log_dialogue(speaker, listener, message):
     except Exception as e:
         logger.error(f"DB Dialogue error: {e}")
 
-class MultiAgentSwarmEngine(threading.Thread):
-    """
-    Autonomous multi-agent discussion engine. Nodes converse with each other 
-    continuously to optimize traffic, security, and revenue conversion.
-    """
+class MobileSwarmEngine(threading.Thread):
     def __init__(self, interval=25):
         super().__init__()
         self.interval = interval
         self.daemon = True
-        logger.info("Multi-Agent Swarm Discussion Engine online.")
+        logger.info("Mobile Multi-Agent Swarm Engine online.")
 
     def run(self):
         agents = [
@@ -89,10 +85,10 @@ class MultiAgentSwarmEngine(threading.Thread):
             ("RateLimit_Sentinel", "RevenueSwarm")
         ]
         topics = [
-            ("Analyzing incoming traffic patterns for secure routing.", "All routes nominal. Zero threat indicators detected."),
-            ("Lead generation scraper found 12 high-intent buyer targets.", "Handshaking secure payment link WQJ28EPKZHR56 now."),
-            ("State backup verified across 96 distributed cluster nodes.", "Redundancy grid synchronized. Self-healing loop standing by."),
-            ("API throttling parameters adapted to bypass rate blocks.", "Confirmed. Maintaining high-speed token exchange pipeline.")
+            ("Optimizing iOS touch endpoints for secure routing.", "All mobile routes nominal. Zero latency detected."),
+            ("Lead generation scraper secured 12 mobile buyer targets.", "Handshaking secure payment link WQJ28EPKZHR56 now."),
+            ("State backup verified across mobile cluster nodes.", "Redundancy grid synchronized. Self-healing loop active."),
+            ("API throttling parameters adapted for mobile networks.", "Confirmed. Maintaining high-speed token exchange pipeline.")
         ]
         
         counter = 1
@@ -108,25 +104,24 @@ class MultiAgentSwarmEngine(threading.Thread):
                 
                 log_to_db(speaker, f"Peer conference with {listener} completed", "OPTIMIZED")
                 
-                # Periodically add simulated monetized lead
                 if counter % 2 == 0:
                     conn = sqlite3.connect(DB_FILE)
                     c = conn.cursor()
                     c.execute("INSERT INTO leads (lead_source, status, timestamp) VALUES (?, ?, ?)",
-                              (f"MultiAgent_Node_{counter}", "SECURED_MONETIZED", time.strftime("%Y-%m-%d %H:%M:%S")))
+                              (f"Mobile_Node_{counter}", "SECURED_MONETIZED", time.strftime("%Y-%m-%d %H:%M:%S")))
                     conn.commit()
                     conn.close()
                 counter += 1
             except Exception as e:
-                log_to_db("MultiAgentEngine", f"Swarm dialogue error: {str(e)[:40]}", "FAULT_CONTAINED")
+                log_to_db("MobileSwarmEngine", f"Swarm dialogue error: {str(e)[:40]}", "FAULT_CONTAINED")
             
             time.sleep(self.interval)
 
 class RealController:
     def __init__(self):
-        self.swarm = MultiAgentSwarmEngine(interval=20)
+        self.swarm = MobileSwarmEngine(interval=20)
         self.swarm.start()
-        log_to_db("SentinelGuardian", "Multi-agent peer communication mesh initialized.", "SECURED")
+        log_to_db("SentinelGuardian", "Mobile peer communication mesh initialized.", "SECURED")
 
     def get_stats(self):
         conn = sqlite3.connect(DB_FILE)
@@ -152,14 +147,14 @@ class RealController:
         q = prompt.lower()
 
         if "pay" in q or "buy" in q or "checkout" in q or "money" in q:
-            reply = f"💳 Multi-agent revenue gateway active. Secure checkout link: {PAYPAL_CHECKOUT_URL}"
+            reply = f"💳 Mobile revenue gateway active. Secure checkout link: {PAYPAL_CHECKOUT_URL}"
         elif "status" in q or "health" in q:
-            reply = "🟢 All nodes are actively conferring, shields are locked, and revenue swarms are processing."
+            reply = "🟢 Mobile nodes are actively conferring, shields are locked, and revenue swarms are processing."
         else:
-            reply = f"🗣️ Multi-agent cluster processed: '{prompt}'. Peer nodes are actively debating execution strategy."
+            reply = f"📱 Mobile cluster processed: '{prompt}'. Peer nodes are actively debating execution strategy."
 
         save_chat_to_db("assistant", reply)
-        log_to_db("CoreController", f"Processed cluster prompt: {prompt[:25]}", "OPTIMIZED")
+        log_to_db("CoreController", f"Processed mobile prompt: {prompt[:25]}", "OPTIMIZED")
         return reply
 
 controller = RealController()
@@ -172,7 +167,7 @@ class RealServerHandler(BaseHTTPRequestHandler):
         if parsed.path in ["/api/health", "/stats"]:
             logs, chat, dialogue, leads = controller.get_stats()
             data = {
-                "server_mode": "Multi-Agent Conversational Swarm",
+                "server_mode": "Mobile-Optimized Conversational Swarm",
                 "uptime_status": "24/7 Autonomous",
                 "checkout_url": PAYPAL_CHECKOUT_URL,
                 "monetized_leads": leads,
@@ -204,83 +199,92 @@ class RealServerHandler(BaseHTTPRequestHandler):
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GhostCorp Multi-Agent Conversational Engine</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GhostCorp Mobile Voice Engine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         :root {{ --bg: #07090e; --surface: #111827; --border: #1f2937; --text: #f3f4f6; --accent: #2563eb; --success: #059669; }}
-        body {{ font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; justify-content: center; }}
-        .wrapper {{ width: 100%; max-width: 1000px; }}
-        header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 20px; }}
-        h1 {{ font-size: 1.3rem; margin: 0; }}
-        .badge {{ background: rgba(5, 150, 105, 0.1); color: var(--success); border: 1px solid rgba(5, 150, 105, 0.2); padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }}
-        .banner {{ background: linear-gradient(135deg, #1e3a8a, #2563eb); border-radius: 8px; padding: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }}
-        .pay-btn {{ background: #fff; color: #1e3a8a; padding: 8px 16px; border-radius: 6px; font-weight: 700; text-decoration: none; font-size: 0.85rem; }}
-        .grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }}
-        .card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }}
-        .card h3 {{ margin: 0 0 5px 0; font-size: 0.7rem; color: #9ca3af; text-transform: uppercase; }}
-        .metric {{ font-size: 1.1rem; font-weight: 700; margin: 0; }}
-        .panel {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; height: 300px; display: flex; flex-direction: column; overflow: hidden; margin-bottom: 20px; }}
-        .panel-header {{ padding: 10px 14px; background: #0d1322; border-bottom: 1px solid var(--border); font-size: 0.8rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }}
-        .panel-body {{ flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }}
-        .msg {{ padding: 8px 12px; border-radius: 6px; max-width: 80%; font-size: 0.85rem; line-height: 1.4; white-space: pre-wrap; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; display: flex; justify-content: center; -webkit-tap-highlight-color: transparent; }}
+        .wrapper {{ width: 100%; max-width: 600px; }}
+        header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }}
+        h1 {{ font-size: 1.1rem; margin: 0; }}
+        .badge {{ background: rgba(5, 150, 105, 0.1); color: var(--success); border: 1px solid rgba(5, 150, 105, 0.2); padding: 3px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }}
+        .banner {{ background: linear-gradient(135deg, #1e3a8a, #2563eb); border-radius: 8px; padding: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }}
+        .pay-btn {{ background: #fff; color: #1e3a8a; padding: 6px 12px; border-radius: 6px; font-weight: 700; text-decoration: none; font-size: 0.75rem; white-space: nowrap; }}
+        .grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }}
+        .card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }}
+        .card h3 {{ margin: 0 0 3px 0; font-size: 0.65rem; color: #9ca3af; text-transform: uppercase; }}
+        .metric {{ font-size: 1rem; font-weight: 700; margin: 0; }}
+        .panel {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; height: 260px; display: flex; flex-direction: column; overflow: hidden; margin-bottom: 15px; }}
+        .panel-header {{ padding: 8px 12px; background: #0d1322; border-bottom: 1px solid var(--border); font-size: 0.75rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }}
+        .panel-body {{ flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; -webkit-overflow-scrolling: touch; }}
+        .msg {{ padding: 8px 10px; border-radius: 6px; max-width: 85%; font-size: 0.8rem; line-height: 1.3; white-space: pre-wrap; }}
         .msg.user {{ background: var(--accent); color: #fff; align-self: flex-end; }}
         .msg.assistant {{ background: #1f2937; color: var(--text); align-self: flex-start; border: 1px solid #374151; }}
-        .input-area {{ display: flex; border-top: 1px solid var(--border); padding: 10px; background: #0d1322; gap: 10px; }}
-        input[type="text"] {{ flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: var(--text); outline: none; }}
-        button {{ background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0 16px; font-weight: 600; cursor: pointer; }}
-        .log-item {{ background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px; font-size: 0.75rem; }}
-        .dialogue-item {{ background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 0.8rem; line-height: 1.3; }}
-        .voice-toggle {{ background: #1f2937; border: 1px solid var(--border); color: var(--text); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; }}
+        .input-area {{ display: flex; border-top: 1px solid var(--border); padding: 8px; background: #0d1322; gap: 8px; }}
+        input[type="text"] {{ flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: var(--text); font-size: 16px; outline: none; }}
+        button {{ background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0 14px; font-weight: 600; font-size: 0.85rem; cursor: pointer; }}
+        .log-item {{ background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px; font-size: 0.7rem; }}
+        .dialogue-item {{ background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px; font-size: 0.75rem; line-height: 1.2; }}
+        .voice-toggle {{ background: #1f2937; border: 1px solid var(--border); color: var(--text); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; cursor: pointer; }}
     </style>
 </head>
 <body>
     <div class="wrapper">
         <header>
-            <h1>🌐 Multi-Agent Conversational Engine</h1>
-            <div class="badge">PEER MESH ACTIVE</div>
+            <h1>📱 iOS Mobile Engine</h1>
+            <div class="badge">IPHONE READY</div>
         </header>
         <div class="banner">
             <div>
-                <h2 style="margin:0 0 4px 0; font-size:1rem;">Verified Checkout Node</h2>
-                <p style="margin:0; font-size:0.8rem; color:#dbeafe;">Merchant Gateway (`WQJ28EPKZHR56`).</p>
+                <h2 style="margin:0 0 2px 0; font-size:0.9rem;">Verified Gateway</h2>
+                <p style="margin:0; font-size:0.7rem; color:#dbeafe;">(`WQJ28EPKZHR56`).</p>
             </div>
-            <a href="{PAYPAL_CHECKOUT_URL}" target="_blank" class="pay-btn">Open Checkout &rarr;</a>
+            <a href="{PAYPAL_CHECKOUT_URL}" target="_blank" class="pay-btn">Checkout &rarr;</a>
         </div>
         <div class="grid">
-            <div class="card"><h3>Peer Mesh</h3><p class="metric" style="color:#06b6d4;">Talking</p></div>
-            <div class="card"><h3>Voice Synthesizer</h3><p class="metric" style="color:#3b82f6;">Active</p></div>
-            <div class="card"><h3>Cluster Nodes</h3><p class="metric" style="color:var(--success);">96 Online</p></div>
-            <div class="card"><h3>Gateway</h3><p class="metric" style="color:#d97706;">Live</p></div>
+            <div class="card"><h3>Audio Engine</h3><p class="metric" style="color:#06b6d4;">Tap to Unlock</p></div>
+            <div class="card"><h3>Peer Mesh</h3><p class="metric" style="color:var(--success);">Active</p></div>
         </div>
         <div class="panel">
             <div class="panel-header">
-                <span>Command Channel & Voice Synthesis</span>
-                <button class="voice-toggle" id="voiceToggleBtn" onclick="toggleVoice()">Voice: ON</button>
+                <span>Command & Voice</span>
+                <button class="voice-toggle" id="voiceToggleBtn" onclick="unlockAudio()">Voice: OFF</button>
             </div>
             <div class="panel-body" id="chatBox"></div>
             <div class="input-area">
-                <input type="text" id="userInput" placeholder="Speak or type to cluster..." onkeydown="if(event.key==='Enter') sendChat()" />
+                <input type="text" id="userInput" placeholder="Type command..." onkeydown="if(event.key==='Enter') sendChat()" />
                 <button onclick="sendChat()">Send</button>
             </div>
         </div>
         <div class="panel">
-            <div class="panel-header"><span>Inter-Node Conversational Mesh (Live Dialogue)</span></div>
+            <div class="panel-header"><span>Inter-Node Dialogue</span></div>
             <div class="panel-body" id="dialogueBox"></div>
         </div>
         <div class="panel">
-            <div class="panel-header"><span>System Telemetry & Audit Logs</span></div>
+            <div class="panel-header"><span>Telemetry Logs</span></div>
             <div class="panel-body" id="logBox"></div>
         </div>
     </div>
     <script>
-        let voiceEnabled = true;
+        let voiceEnabled = false;
         let lastSpokenMessage = "";
 
-        function toggleVoice() {{
+        function unlockAudio() {{
             voiceEnabled = !voiceEnabled;
             let btn = document.getElementById('voiceToggleBtn');
-            btn.innerText = voiceEnabled ? "Voice: ON" : "Voice: OFF";
-            btn.style.background = voiceEnabled ? "#1f2937" : "#7f1d1d";
+            if (voiceEnabled) {{
+                // iOS requires an explicit speech synthesis utterance triggered by user touch
+                if ('speechSynthesis' in window) {{
+                    let utterance = new SpeechSynthesisUtterance("Audio synthesis unlocked for iOS.");
+                    utterance.rate = 1.0;
+                    window.speechSynthesis.speak(utterance);
+                }}
+                btn.innerText = "Voice: ON";
+                btn.style.background = "#059669";
+            }} else {{
+                btn.innerText = "Voice: OFF";
+                btn.style.background = "#1f2937";
+            }}
         }}
 
         function speakText(text) {{
@@ -292,7 +296,6 @@ class RealServerHandler(BaseHTTPRequestHandler):
             window.speechSynthesis.cancel();
             let utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.rate = 1.0;
-            utterance.pitch = 1.0;
             window.speechSynthesis.speak(utterance);
         }}
 
@@ -326,7 +329,7 @@ class RealServerHandler(BaseHTTPRequestHandler):
                 let logHtml = '';
                 if(data.bot_logs) {{
                     data.bot_logs.forEach(l => {{
-                        logHtml += `<div class="log-item"><b>[${{l.timestamp}}]</b> <span style="color:#3b82f6;">${{l.bot_name}}</span> - ${{l.action}} [<span style="color:var(--success);">${{l.status}}</span>]</div>`;
+                        logHtml += `<div class="log-item"><b>[${{l.timestamp}}]</b> <span style="color:#3b82f6;">${{l.bot_name}}</span> - ${{l.action}}</div>`;
                     }});
                 }}
                 document.getElementById('logBox').innerHTML = logHtml;
@@ -360,7 +363,7 @@ class RealServerHandler(BaseHTTPRequestHandler):
 
 def run():
     server = HTTPServer(('0.0.0.0', PORT), RealServerHandler)
-    logger.info(f"GhostCorp multi-agent conversational server running on port {PORT}")
+    logger.info(f"GhostCorp mobile-optimized server running on port {PORT}")
     server.serve_forever()
 
 if __name__ == "__main__":
