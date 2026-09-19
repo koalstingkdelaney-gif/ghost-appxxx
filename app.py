@@ -4,15 +4,16 @@ import sqlite3
 import logging
 import uuid
 import datetime
+import psutil
 from typing import List
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("OmniHiveSentinel")
+logger = logging.getLogger("OmniHiveRealEngine")
 
-app = FastAPI(title="Omni-Hive Sentinel & Self-Preservation Engine")
+app = FastAPI(title="Omni-Hive Real-Data Sentinel Engine")
 DB_FILE = "storefront.db"
 
 PAYPAL_LINKS = {
@@ -29,12 +30,6 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, customer_email TEXT, product_name TEXT, amount TEXT, status TEXT, download_token TEXT, timestamp TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS system_logs 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, message TEXT, timestamp TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS metrics 
-                 (key TEXT PRIMARY KEY, value INTEGER)''')
-    
-    # Initialize default counter metrics if not present
-    c.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('threats_blocked', 0)")
-    c.execute("INSERT OR IGNORE INTO metrics (key, value) VALUES ('active_nodes', 1)")
     conn.commit()
     conn.close()
 
@@ -55,21 +50,12 @@ class NetworkManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        # Update node count metric
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute("UPDATE metrics SET value = value + 1 WHERE key = 'active_nodes'")
-        conn.commit()
-        conn.close()
+        log_system_event("NetworkManager", f"New active WebSocket client connected. Total peers: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute("UPDATE metrics SET value = MAX(1, value - 1) WHERE key = 'active_nodes'")
-        conn.commit()
-        conn.close()
+            log_system_event("NetworkManager", f"WebSocket client disconnected. Active peers: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
         payload = json.dumps(message)
@@ -102,7 +88,7 @@ def initiate_order(data: OrderCreateRequest):
         conn.commit()
         conn.close()
 
-        log_system_event("RevenueVault", f"Initiated checkout for {data.customer_email} - ${data.price}")
+        log_system_event("RevenueVault", f"Real order initialized for {data.customer_email} - Tier: {data.tier} (${data.price})")
         target_url = PAYPAL_LINKS.get(data.price, PAYPAL_LINKS["40.00"])
 
         return {
@@ -117,18 +103,11 @@ def initiate_order(data: OrderCreateRequest):
 @app.post("/api/directive")
 async def process_directive(data: DirectiveRequest):
     directive_text = data.directive
-    log_system_event("DirectiveEngine", f"Processed user command: '{directive_text}'")
-    
-    # Increment threat count or simulate defensive action based on directive
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("UPDATE metrics SET value = value + 1 WHERE key = 'threats_blocked'")
-    conn.commit()
-    conn.close()
+    log_system_event("DirectiveEngine", f"User Directive Executed: '{directive_text}'")
 
     await manager.broadcast({
         "source": "DirectiveEngine",
-        "message": f"Self-Preservation Directive Processed: '{directive_text}'. Fleet integrity verified."
+        "message": f"Command processed successfully: '{directive_text}'"
     })
     return {"status": "success", "message": f"Processed: {directive_text}"}
 
@@ -137,20 +116,18 @@ def get_system_stats():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     
-    # Completed orders & Revenue
+    # Real revenue and order metrics from DB
     c.execute("SELECT COUNT(*), SUM(CAST(amount AS REAL)) FROM orders WHERE status = 'COMPLETED'")
     row = c.fetchone()
     completed_orders = row[0] or 0
     total_rev = row[1] or 0.0
 
-    # Dynamic metrics
-    c.execute("SELECT value FROM metrics WHERE key = 'threats_blocked'")
-    threats = c.fetchone()[0]
+    # Real server specs using psutil
+    cpu_usage = psutil.cpu_percent(interval=None)
+    memory = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
 
-    c.execute("SELECT value FROM metrics WHERE key = 'active_nodes'")
-    nodes = c.fetchone()[0]
-
-    # Fetch recent logs
+    # Fetch real recorded system logs from DB
     c.execute("SELECT timestamp, source, message FROM system_logs ORDER BY id DESC LIMIT 15")
     logs = [{"timestamp": r[0], "source": r[1], "message": r[2]} for r in c.fetchall()]
 
@@ -158,9 +135,10 @@ def get_system_stats():
     return {
         "completed_orders": completed_orders,
         "revenue": f"${total_rev:.2f}",
-        "threats_blocked": threats,
-        "active_nodes": nodes,
-        "active_servers": max(1, nodes // 4),
+        "cpu_usage": f"{cpu_usage}%",
+        "memory_used": f"{memory.percent}%",
+        "disk_free": f"{disk.free // (2**30)} GB",
+        "active_nodes": len(manager.active_connections),
         "logs": logs
     }
 
@@ -179,7 +157,7 @@ def serve_dashboard():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Omni-Hive Sentinel & Self-Preservation Engine</title>
+    <title>Omni-Hive Real-Time Telemetry Engine</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
         .wrapper { width: 100%; max-width: 750px; }
@@ -188,7 +166,7 @@ def serve_dashboard():
         .badge { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; }
         .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; text-align: center; }
         .metric-card { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; }
-        .metric-val { font-size: 1.2rem; font-weight: 700; color: #34d399; margin-top: 5px; }
+        .metric-val { font-size: 1.1rem; font-weight: 700; color: #34d399; margin-top: 5px; }
         .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
         .tier-card { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 15px; text-align: center; }
         .tier-price { font-size: 1.3rem; font-weight: 700; color: #34d399; margin: 8px 0; }
@@ -203,21 +181,21 @@ def serve_dashboard():
 <body>
     <div class="wrapper">
         <div class="card">
-            <h1>Omni-Hive Sentinel <span class="badge">Shields Active</span></h1>
-            <p>Protected revenue routes securely through verified gateway nodes.</p>
+            <h1>Real-Time System Telemetry <span class="badge">Live OS Stats</span></h1>
+            <p>Direct system performance metrics queried straight from the host container.</p>
             
             <div class="metrics-grid">
-                <div class="metric-card"><div>Servers</div><div class="metric-val" id="valServers">-</div></div>
-                <div class="metric-card"><div>Nodes</div><div class="metric-val" id="valNodes">-</div></div>
+                <div class="metric-card"><div>CPU Load</div><div class="metric-val" id="valCpu">-</div></div>
+                <div class="metric-card"><div>Memory</div><div class="metric-val" id="valMem">-</div></div>
                 <div class="metric-card"><div>Revenue</div><div class="metric-val" id="valRev">$0.00</div></div>
-                <div class="metric-card"><div>Threats</div><div class="metric-val" id="valThreats">-</div></div>
+                <div class="metric-card"><div>Active Peers</div><div class="metric-val" id="valNodes">-</div></div>
             </div>
         </div>
 
         <div class="card">
-            <h3>Sentinel Defense Channel</h3>
-            <textarea id="directiveInput" rows="2" placeholder="Send self-preservation directive (e.g. Fix yourself)...">Fix yourself</textarea>
-            <button class="btn" onclick="sendDirective()">Execute Directive</button>
+            <h3>System Command Console</h3>
+            <textarea id="directiveInput" rows="2" placeholder="Enter system command...">Run system diagnosis</textarea>
+            <button class="btn" onclick="sendDirective()">Execute Command</button>
         </div>
 
         <div class="card">
@@ -253,17 +231,17 @@ def serve_dashboard():
         </div>
 
         <div class="card">
-            <h3>Threat Interception & Defense Logs</h3>
+            <h3>Live Application Event Log</h3>
             <div class="log-box" id="hiveLog">Connecting to live feed...</div>
         </div>
     </div>
     <script>
         function loadStats() {
             fetch('/api/stats').then(res => res.json()).then(data => {
-                document.getElementById('valServers').innerText = data.active_servers;
-                document.getElementById('valNodes').innerText = data.active_nodes;
+                document.getElementById('valCpu').innerText = data.cpu_usage;
+                document.getElementById('valMem').innerText = data.memory_used;
                 document.getElementById('valRev').innerText = data.revenue;
-                document.getElementById('valThreats').innerText = data.threats_blocked;
+                document.getElementById('valNodes').innerText = data.active_nodes;
 
                 let logHTML = "";
                 if(data.logs && data.logs.length > 0) {
@@ -271,18 +249,17 @@ def serve_dashboard():
                         logHTML += `<div>[${l.timestamp}] ${l.source} ↳ ${l.message}</div>`;
                     });
                 } else {
-                    logHTML = "<div>System stable. No recent faults detected.</div>";
+                    logHTML = "<div>No logs recorded yet.</div>";
                 }
                 document.getElementById('hiveLog').innerHTML = logHTML;
             });
         }
         
         loadStats();
-        setInterval(loadStats, 4000);
+        setInterval(loadStats, 3000);
 
         const ws = new WebSocket((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/hive');
         ws.onmessage = function(event) {
-            const data = JSON.parse(event.data);
             loadStats();
         };
 
@@ -321,9 +298,6 @@ def serve_dashboard():
                 } else {
                     window.location.href = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56";
                 }
-            })
-            .catch(() => {
-                window.location.href = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56";
             });
         }
     </script>
