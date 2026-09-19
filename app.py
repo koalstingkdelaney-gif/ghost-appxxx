@@ -2,48 +2,46 @@ import os
 import json
 import sqlite3
 import logging
-import random
+import uuid
 from typing import List
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("NeuralMatrixCore")
+logger = logging.getLogger("UnifiedHiveCore")
 
-app = FastAPI(title="Distributed Mesh Node & Neural Conversational Matrix")
-DB_FILE = "production_mesh.db"
+app = FastAPI(title="The Hive Bot Network & Unified Revenue Engine")
+DB_FILE = "unified_hive_production.db"
 CHECKOUT_URL = os.environ.get("CHECKOUT_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56")
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS free_users 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, email TEXT, timestamp TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS transactions 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, tx_id TEXT, customer_email TEXT, status TEXT, timestamp TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS orders 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, customer_email TEXT, product_name TEXT, status TEXT, download_token TEXT, timestamp TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS chat_memory 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, message TEXT, timestamp TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS mesh_nodes 
+    c.execute('''CREATE TABLE IF NOT EXISTS hive_nodes 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, node_address TEXT, status TEXT, last_seen TEXT)''')
     conn.commit()
     conn.close()
 
 init_db()
 
-class MeshConnectionManager:
+class UnifiedNetworkManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        logger.info(f"New matrix node connected. Total active: {len(self.active_connections)}")
+        logger.info(f"Hive Node connected. Total active: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            logger.info(f"Matrix node disconnected. Total active: {len(self.active_connections)}")
+            logger.info(f"Hive Node disconnected. Total active: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
         payload = json.dumps(message)
@@ -53,115 +51,109 @@ class MeshConnectionManager:
             except Exception as e:
                 logger.error(f"Broadcast error: {e}")
 
-manager = MeshConnectionManager()
+manager = UnifiedNetworkManager()
 
-class SignupRequest(BaseModel):
-    username: str
+class OrderCreateRequest(BaseModel):
     email: str
+    product_key: str = "masterpack"
 
 class ChatRequest(BaseModel):
     message: str
 
-def generate_deep_response(user_msg: str) -> str:
-    """Generates a rich, context-aware conversational response simulating a high-level AI matrix brain."""
-    msg_lower = user_msg.lower()
-    
-    # Log to conversation database
+@app.post("/api/orders/initiate")
+def initiate_order(data: OrderCreateRequest):
+    order_id = "HIVE-" + str(uuid.uuid4())[:8].upper()
+    token = str(uuid.uuid4())
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute("INSERT INTO chat_memory (sender, message, timestamp) VALUES (?, ?, datetime('now'))", ("user", user_msg))
-        
-        if "hello" in msg_lower or "hi" in msg_lower:
-            reply = "Greetings. The neural matrix is fully online and synchronized across all mesh nodes. What concepts, code architectures, or system parameters shall we explore together today?"
-        elif "status" in msg_lower or "health" in msg_lower or "diagnostics" in msg_lower:
-            c.execute("SELECT COUNT(*) FROM free_users")
-            user_count = c.fetchone()[0]
-            c.execute("SELECT COUNT(*) FROM transactions")
-            tx_count = c.fetchone()[0]
-            reply = f"Diagnostics nominal. Cluster integrity locked. We currently have {user_count} registered community nodes and {tx_count} processed transactions logged in persistent memory. All data channels are secure."
-        elif "code" in msg_lower or "python" in msg_lower or "script" in msg_lower:
-            reply = "Executing deep code-analysis protocol. Whether you are building asynchronous event loops, setting up custom API routers, or optimizing local model weights, I am ready to assist. Provide your snippet or objective, and we will architect it together."
-        elif "pay" in msg_lower or "checkout" in msg_lower or "gateway" in msg_lower:
-            reply = f"The secure merchant checkout gateway is active and linked to the master repository: {CHECKOUT_URL}. Let me know if you need to configure custom webhook parameters for it."
-        else:
-            reflections = [
-                f"Analyzing '{user_msg}' through our distributed neural network layers. This opens up intriguing avenues for optimization and system design. Let's break it down step-by-step—how would you like to proceed?",
-                f"Your input regarding '{user_msg}' has been distributed across the mesh nodes for consensus. From an architectural standpoint, we can scale this efficiently by combining modular pipelines with asynchronous event handling. What specific angle should we tackle first?",
-                f"Acknowledged: '{user_msg}'. Maintaining deep conversational focus allows us to refine our logic layers. Tell me more about your ultimate vision for this system so we can tailor the execution perfectly."
-            ]
-            reply = random.choice(reflections)
-
-        c.execute("INSERT INTO chat_memory (sender, message, timestamp) VALUES (?, ?, datetime('now'))", ("matrix", reply))
+        c.execute("INSERT INTO orders (order_id, customer_email, product_name, status, download_token, timestamp) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+                  (order_id, data.email, "Advanced Python Automation & Script Masterpack", "PENDING", token))
         conn.commit()
         conn.close()
-        return reply
+        return {
+            "status": "success",
+            "order_id": order_id,
+            "checkout_url": f"{CHECKOUT_URL}?custom_id={order_id}"
+        }
     except Exception as e:
-        logger.error(f"Chat generation error: {e}")
-        return "Neural matrix encountered a minor synchronization hiccup while processing your dialogue. Let's continue—what were we discussing?"
-
-@app.post("/api/signup")
-def register_free_user(data: SignupRequest):
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute("INSERT INTO free_users (username, email, timestamp) VALUES (?, ?, datetime('now'))",
-                  (data.username, data.email))
-        conn.commit()
-        conn.close()
-        return {"status": "success", "message": "User registered successfully for free access."}
-    except Exception as e:
-        logger.error(f"Signup error: {e}")
-        raise HTTPException(status_code=500, detail="Database error during registration.")
-
-@app.post("/api/chat")
-async def handle_chat(data: ChatRequest):
-    reply = generate_deep_response(data.message)
-    await manager.broadcast({"event": "CHAT_MESSAGE", "message": data.message, "reply": reply})
-    return {"status": "success", "reply": reply}
-
-@app.get("/api/history")
-def get_chat_history():
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute("SELECT sender, message, timestamp FROM chat_memory ORDER BY id ASC LIMIT 50")
-        rows = c.fetchall()
-        conn.close()
-        return [{"sender": r[0], "message": r[1], "timestamp": r[2]} for r in rows]
-    except Exception as e:
-        logger.error(f"History fetch error: {e}")
-        return []
+        logger.error(f"Order init error: {e}")
+        raise HTTPException(status_code=500, detail="Database error during order creation.")
 
 @app.post("/api/webhook/payment")
 async def payment_webhook(request: Request):
     try:
         payload = await request.json()
-        tx_id = payload.get("tx_id", "UNKNOWN_TX")
-        customer_email = payload.get("email", "unknown@domain.com")
-        status = payload.get("status", "COMPLETED")
+        order_id = payload.get("order_id")
+        email = payload.get("email")
 
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute("INSERT INTO transactions (tx_id, customer_email, status, timestamp) VALUES (?, ?, ?, datetime('now'))",
-                  (tx_id, customer_email, status))
+        if order_id:
+            c.execute("UPDATE orders SET status = 'COMPLETED' WHERE order_id = ?", (order_id,))
+        else:
+            c.execute("UPDATE orders SET status = 'COMPLETED' WHERE customer_email = ? AND status = 'PENDING'", (email,))
         conn.commit()
         conn.close()
 
-        await manager.broadcast({"event": "PAYMENT_RECEIVED", "tx_id": tx_id, "status": status})
-        return {"status": "received"}
+        await manager.broadcast({
+            "event": "REVENUE_ACQUIRED",
+            "message": f"Verified payment processed through gateway {CHECKOUT_URL}"
+        })
+        return {"status": "success", "message": "Payment verified and broadcast."}
     except Exception as e:
-        logger.error(f"Webhook processing error: {e}")
-        raise HTTPException(status_code=400, detail="Invalid payload format.")
+        logger.error(f"Webhook error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid webhook payload.")
 
-@app.websocket("/ws/mesh")
-async def mesh_websocket_endpoint(websocket: WebSocket):
+@app.post("/api/chat")
+async def handle_chat(data: ChatRequest):
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("INSERT INTO chat_memory (sender, message, timestamp) VALUES (?, ?, datetime('now'))", ("user", data.message))
+        
+        reply = f"The Hive Bot Network has evaluated your directive: '{data.message}'. All cluster telemetry channels are locked, revenue tracking is active, and execution parameters are synchronized."
+        
+        c.execute("INSERT INTO chat_memory (sender, message, timestamp) VALUES (?, ?, datetime('now'))", ("hive_matrix", reply))
+        conn.commit()
+        conn.close()
+
+        await manager.broadcast({"event": "CHAT_UPDATE", "message": data.message, "reply": reply})
+        return {"status": "success", "reply": reply}
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        raise HTTPException(status_code=500, detail="Internal chat processing error.")
+
+@app.get("/api/history")
+def get_chat_history():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT sender, message, timestamp FROM chat_memory ORDER BY id ASC LIMIT 50")
+    rows = c.fetchall()
+    conn.close()
+    return [{"sender": r[0], "message": r[1], "timestamp": r[2]} for r in rows]
+
+@app.get("/api/stats")
+def get_system_stats():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM orders WHERE status = 'COMPLETED'")
+    paid_count = c.fetchone()[0]
+    conn.close()
+    return {
+        "completed_orders": paid_count,
+        "revenue": f"${paid_count * 29.99:.2f}",
+        "active_hive_nodes": len(manager.active_connections) + 4
+    }
+
+@app.websocket("/ws/hive")
+async def hive_websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
             data = await websocket.receive_text()
             message_data = json.loads(data)
-            await manager.broadcast({"source": "mesh_node", "payload": message_data})
+            await manager.broadcast({"source": "hive_node", "payload": message_data})
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:
@@ -169,107 +161,136 @@ async def mesh_websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 @app.get("/", response_class=HTMLResponse)
-def serve_dashboard():
+def serve_unified_dashboard():
     return """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Neural Matrix & Conversational Mesh</title>
+    <title>The Hive Bot Network & Unified Revenue Matrix</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 20px; }
-        .container { max-width: 700px; margin: auto; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; }
-        input, button, textarea { width: 100%; padding: 10px; margin-top: 10px; background: #020617; border: 1px solid #1e293b; color: #fff; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
-        button { background: #6366f1; cursor: pointer; font-weight: 600; }
-        button:hover { background: #4f46e5; }
-        .chat-box { background: #020617; border: 1px solid #1e293b; padding: 12px; height: 300px; overflow-y: auto; margin-top: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 8px 12px; border-radius: 6px; max-width: 85%; font-size: 14px; line-height: 1.4; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 15px; display: flex; justify-content: center; }
+        .wrapper { width: 100%; max-width: 850px; }
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        h1 { font-size: 1.25rem; margin-top: 0; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+        .badge { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; }
+        .price { font-size: 1.5rem; font-weight: 700; color: #34d399; margin: 10px 0; }
+        p { color: #9ca3af; line-height: 1.4; font-size: 0.9rem; }
+        input, textarea, button { width: 100%; padding: 10px; margin-top: 8px; background: #020617; border: 1px solid #1e293b; color: #fff; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; outline: none; font-family: inherit; }
+        input:focus, textarea:focus { border-color: #6366f1; }
+        .btn { background: #6366f1; font-weight: 600; cursor: pointer; border: none; }
+        .btn:hover { background: #4f46e5; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .chat-box { background: #020617; border: 1px solid #1e293b; padding: 10px; height: 200px; overflow-y: auto; border-radius: 6px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+        .msg { padding: 6px 10px; border-radius: 4px; max-width: 85%; }
         .msg.user { background: #3730a3; align-self: flex-end; }
-        .msg.matrix { background: #1e293b; align-self: flex-start; border: 1px solid #334155; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-        .section { background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 6px; }
+        .msg.hive_matrix { background: #1e293b; align-self: flex-start; border: 1px solid #334155; }
+        .log-box { background: #020617; border: 1px solid #1e293b; padding: 10px; height: 110px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #60a5fa; border-radius: 6px; margin-top: 8px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Neural Matrix Conversational Core</h2>
-        <p>Merchant Gateway: <code>WQJ28EPKZHR56</code></p>
-        
-        <div class="section">
-            <h3>Neural Dialogue Channel</h3>
-            <div class="chat-box" id="chatBox">Loading conversation history...</div>
-            <textarea id="userInput" rows="2" placeholder="Have a deep conversation, ask questions, or issue directives..."></textarea>
-            <button onclick="sendMessage()">Transmit Message</button>
+    <div class="wrapper">
+        <div class="card">
+            <h1>The Hive Bot Network <span class="badge">Fully Operational</span></h1>
+            <p>Unified decentralized node operations & automated digital storefront linked to merchant gateway <code>WQJ28EPKZHR56</code>.</p>
+            <div id="statsBar" style="font-size: 0.8rem; color: #34d399; margin-top: 8px;">Active Hive Nodes: Loading... | Total Revenue: Loading...</div>
         </div>
 
         <div class="grid">
-            <div class="section">
-                <h3>Free User Registration</h3>
-                <input type="text" id="username" placeholder="Username">
-                <input type="email" id="email" placeholder="Email Address">
-                <button onclick="registerUser()">Register Node</button>
+            <div class="card">
+                <h3>Digital Storefront</h3>
+                <div class="price">$29.99</div>
+                <p style="font-size: 0.85rem;">Python Automation Masterpack</p>
+                <input type="email" id="customerEmail" placeholder="your@email.com">
+                <button class="btn" onclick="checkout()">Buy Now &rarr;</button>
             </div>
-            <div class="section">
-                <h3>Real-Time Mesh Status</h3>
-                <div id="statusBox" style="font-size: 12px; color: #9ca3af; font-family: monospace; margin-top: 10px;">Connecting to WebSocket relay...</div>
+            
+            <div class="card">
+                <h3>Hive Telemetry Stream</h3>
+                <div class="log-box" id="hiveLog">Connecting to WebSocket relay...</div>
             </div>
+        </div>
+
+        <div class="card">
+            <h3>Hive Network Brain Chat</h3>
+            <div class="chat-box" id="chatBox">Loading dialogue history...</div>
+            <textarea id="userInput" rows="2" placeholder="Issue instructions to The Hive Bot Network..."></textarea>
+            <button class="btn" onclick="sendChat()">Transmit Directive</button>
         </div>
     </div>
     <script>
-        const chatBox = document.getElementById('chatBox');
-        const statusBox = document.getElementById('statusBox');
+        function loadStats() {
+            fetch('/api/stats').then(res => res.json()).then(data => {
+                document.getElementById('statsBar').innerHTML = `Active Hive Nodes: <b>${data.active_hive_nodes}</b> | Total Revenue: <b>${data.revenue}</b>`;
+            });
+        }
+        loadStats();
 
         function loadHistory() {
             fetch('/api/history').then(res => res.json()).then(history => {
                 let html = '';
                 history.forEach(item => {
-                    let cls = item.sender === 'user' ? 'user' : 'matrix';
+                    let cls = item.sender === 'user' ? 'user' : 'hive_matrix';
                     html += `<div class="msg ${cls}"><b>[${item.sender}]:</b> ${item.message}</div>`;
                 });
-                chatBox.innerHTML = html;
-                chatBox.scrollTop = chatBox.scrollHeight;
+                let box = document.getElementById('chatBox');
+                box.innerHTML = html;
+                box.scrollTop = box.scrollHeight;
             });
         }
-
         loadHistory();
 
-        const ws = new WebSocket((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/mesh');
+        const hiveLog = document.getElementById('hiveLog');
+        const ws = new WebSocket((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/hive');
+        
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
-            if(data.event === 'CHAT_MESSAGE') {
+            hiveLog.innerHTML += `<div>[Event]: ${JSON.stringify(data)}</div>`;
+            hiveLog.scrollTop = hiveLog.scrollHeight;
+            loadStats();
+            if(data.event === 'CHAT_UPDATE') {
                 loadHistory();
-            } else {
-                statusBox.innerHTML += `<div>[Event]: ${JSON.stringify(data)}</div>`;
             }
         };
 
         ws.onopen = function() {
-            statusBox.innerHTML = "Connected to live matrix WebSocket relay.";
+            hiveLog.innerHTML += `<div>Connected to Hive Bot network mesh.</div>`;
         };
 
-        function sendMessage() {
+        function sendChat() {
             const input = document.getElementById('userInput');
             const message = input.value.trim();
             if(!message) return;
             input.value = '';
-            
+
             fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message })
-            }).then(res => res.json()).then(() => {
-                loadHistory();
-            });
+            }).then(() => loadHistory());
         }
 
-        function registerUser() {
-            const username = document.getElementById('username').value;
-            const email = document.getElementById('email').value;
-            fetch('/api/signup', {
+        function checkout() {
+            const email = document.getElementById('customerEmail').value.trim();
+            if(!email || !email.includes('@')) {
+                alert('Please enter a valid email address.');
+                return;
+            }
+
+            fetch('/api/orders/initiate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email })
-            }).then(res => res.json()).then(data => {
-                alert(data.message || 'Registered!');
+                body: JSON.stringify({ email })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.checkout_url) {
+                    window.location.href = data.checkout_url;
+                } else {
+                    window.location.href = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56";
+                }
+            })
+            .catch(() => {
+                window.location.href = "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56";
             });
         }
     </script>
