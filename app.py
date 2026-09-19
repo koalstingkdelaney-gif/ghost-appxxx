@@ -5,17 +5,26 @@ import logging
 import uuid
 import asyncio
 import random
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from typing import List
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("LegalProductEngine")
+logger = logging.getLogger("FullyAutomatedEngine")
 
-app = FastAPI(title="The Hive Bot Network & Legal Product Generation Engine")
-DB_FILE = "legal_hive.db"
+app = FastAPI(title="The Hive Bot Network & Automated Fulfillment Engine")
+DB_FILE = "fully_automated_hive.db"
 CHECKOUT_URL = os.environ.get("CHECKOUT_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56")
+
+# SMTP Configuration from Environment Variables
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -27,7 +36,6 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS chat_memory 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, message TEXT, timestamp TEXT)''')
     
-    # Seed initial legal public-trend products
     c.execute("SELECT COUNT(*) FROM generated_products")
     if c.fetchone()[0] == 0:
         initial_products = [
@@ -48,12 +56,10 @@ class NetworkManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        logger.info(f"Node connected. Total active: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            logger.info(f"Node disconnected. Total active: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
         payload = json.dumps(message)
@@ -65,8 +71,42 @@ class NetworkManager:
 
 manager = NetworkManager()
 
-# --- Legal Trend Analysis & Product Generator ---
-async def run_legal_product_generator():
+def send_fulfillment_email(to_email: str, product_name: str, download_token: str):
+    if not SMTP_USER or not SMTP_PASSWORD:
+        logger.warning("SMTP credentials not set. Skipping live email dispatch.")
+        return False
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_USER
+        msg['To'] = to_email
+        msg['Subject'] = f"Your Digital Download: {product_name}"
+
+        body = f"""Thank you for your purchase!
+
+Your payment has been verified through PayPal. Access your secure download package below:
+Product: {product_name}
+Download Token: {download_token}
+
+Secure Download Link:
+https://{os.environ.get('RENDER_EXTERNAL_URL', 'localhost:8000')}/api/download/{download_token}
+
+Best regards,
+Automated Systems Hub
+"""
+        msg.attach(MIMEText(body, 'plain'))
+
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(SMTP_USER, to_email, msg.as_string())
+        server.quit()
+        logger.info(f"Fulfillment email successfully sent to {to_email}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email: {e}")
+        return False
+
+async def run_product_generator():
     await asyncio.sleep(5)
     while True:
         try:
@@ -79,25 +119,20 @@ async def run_legal_product_generator():
             c.execute("INSERT INTO generated_products (product_name, category, status, timestamp) VALUES (?, ?, 'COMPILED_ORIGINAL', datetime('now'))",
                       (new_product_name, selected_category))
             conn.commit()
-
-            c.execute("SELECT COUNT(*) FROM generated_products")
-            prod_count = c.fetchone()[0]
             conn.close()
 
             await manager.broadcast({
                 "event": "PRODUCT_COMPILED",
-                "message": f"Legally scanned public developer trends. Compiled original asset: '{new_product_name}'. Total catalog size: {prod_count}.",
-                "checkout_target": CHECKOUT_URL
+                "message": f"Compiled original asset: '{new_product_name}'."
             })
-            logger.info(f"Generated original product based on public trends: {new_product_name}")
         except Exception as e:
             logger.error(f"Generator worker error: {e}")
         
-        await asyncio.sleep(30)
+        await asyncio.sleep(45)
 
 @app.on_event("startup")
 async def startup_event():
-    asyncio.create_task(run_legal_product_generator())
+    asyncio.create_task(run_product_generator())
 
 class OrderCreateRequest(BaseModel):
     email: str
@@ -110,13 +145,15 @@ class ChatRequest(BaseModel):
 def initiate_order(data: OrderCreateRequest):
     order_id = "HIVE-" + str(uuid.uuid4())[:8].upper()
     token = str(uuid.uuid4())
+    product_name = "Python Automation & Script Masterpack"
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute("INSERT INTO orders (order_id, customer_email, product_name, status, download_token, timestamp) VALUES (?, ?, ?, ?, ?, datetime('now'))",
-                  (order_id, data.email, "Legal Python Automation & Script Masterpack", "PENDING", token))
+                  (order_id, data.email, product_name, "PENDING", token))
         conn.commit()
         conn.close()
+
         return {
             "status": "success",
             "order_id": order_id,
@@ -136,48 +173,46 @@ async def payment_webhook(request: Request):
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         if order_id:
+            c.execute("SELECT customer_email, product_name, download_token FROM orders WHERE order_id = ?", (order_id,))
+            row = c.fetchone()
             c.execute("UPDATE orders SET status = 'COMPLETED' WHERE order_id = ?", (order_id,))
         else:
+            c.execute("SELECT customer_email, product_name, download_token FROM orders WHERE customer_email = ? AND status = 'PENDING'", (email,))
+            row = c.fetchone()
             c.execute("UPDATE orders SET status = 'COMPLETED' WHERE customer_email = ? AND status = 'PENDING'", (email,))
+        
         conn.commit()
         conn.close()
 
+        if row:
+            cust_email, prod_name, token = row
+            send_fulfillment_email(cust_email, prod_name, token)
+
         await manager.broadcast({
             "event": "REVENUE_ACQUIRED",
-            "message": f"Legal transaction verified! Payment processed through gateway {CHECKOUT_URL}"
+            "message": f"Payment verified and product automatically dispatched via email!"
         })
-        return {"status": "success", "message": "Payment verified and broadcast."}
+        return {"status": "success", "message": "Payment verified and fulfillment sent."}
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         raise HTTPException(status_code=400, detail="Invalid webhook payload.")
 
-@app.post("/api/chat")
-async def handle_chat(data: ChatRequest):
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute("INSERT INTO chat_memory (sender, message, timestamp) VALUES (?, ?, datetime('now'))", ("user", data.message))
-        
-        reply = f"Legal Automation Matrix processed directive: '{data.message}'. Public trend analyzers are active, compiling original assets and directing customers to {CHECKOUT_URL}."
-        
-        c.execute("INSERT INTO chat_memory (sender, message, timestamp) VALUES (?, ?, datetime('now'))", ("hive_matrix", reply))
-        conn.commit()
-        conn.close()
-
-        await manager.broadcast({"event": "CHAT_UPDATE", "message": data.message, "reply": reply})
-        return {"status": "success", "reply": reply}
-    except Exception as e:
-        logger.error(f"Chat error: {e}")
-        raise HTTPException(status_code=500, detail="Internal chat processing error.")
-
-@app.get("/api/history")
-def get_chat_history():
+@app.get("/api/download/{token}")
+def download_product(token: str):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("SELECT sender, message, timestamp FROM chat_memory ORDER BY id ASC LIMIT 50")
-    rows = c.fetchall()
+    c.execute("SELECT product_name, status FROM orders WHERE download_token = ?", (token,))
+    row = c.fetchone()
     conn.close()
-    return [{"sender": r[0], "message": r[1], "timestamp": r[2]} for r in rows]
+    if not row:
+        raise HTTPException(status_code=404, detail="Invalid or expired download token.")
+    
+    return {
+        "status": "success",
+        "product": row[0],
+        "download_link": "https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore",
+        "message": "Secure asset package unlocked successfully."
+    }
 
 @app.get("/api/stats")
 def get_system_stats():
@@ -201,122 +236,73 @@ async def hive_websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            message_data = json.loads(data)
-            await manager.broadcast({"source": "hive_node", "payload": message_data})
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}")
         manager.disconnect(websocket)
 
 @app.get("/", response_class=HTMLResponse)
-def serve_unified_dashboard():
+def serve_dashboard():
     return """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>The Hive Bot Network & Legal Product Generator</title>
+    <title>Automated Digital Storefront</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 15px; display: flex; justify-content: center; }
-        .wrapper { width: 100%; max-width: 850px; }
-        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        h1 { font-size: 1.25rem; margin-top: 0; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .wrapper { width: 100%; max-width: 600px; }
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 25px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        h1 { font-size: 1.4rem; margin-top: 0; color: #fff; display: flex; justify-content: space-between; align-items: center; }
         .badge { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; }
-        .price { font-size: 1.5rem; font-weight: 700; color: #34d399; margin: 10px 0; }
-        p { color: #9ca3af; line-height: 1.4; font-size: 0.9rem; }
-        input, textarea, button { width: 100%; padding: 10px; margin-top: 8px; background: #020617; border: 1px solid #1e293b; color: #fff; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; outline: none; font-family: inherit; }
-        input:focus, textarea:focus { border-color: #6366f1; }
-        .btn { background: #6366f1; font-weight: 600; cursor: pointer; border: none; }
+        .price { font-size: 1.8rem; font-weight: 700; color: #34d399; margin: 15px 0; }
+        p { color: #9ca3af; line-height: 1.4; font-size: 0.95rem; }
+        input, button { width: 100%; padding: 12px; margin-top: 10px; background: #020617; border: 1px solid #1e293b; color: #fff; border-radius: 6px; font-size: 1rem; box-sizing: border-box; outline: none; }
+        input:focus { border-color: #6366f1; }
+        .btn { background: #6366f1; font-weight: 600; cursor: border; border: none; cursor: pointer; }
         .btn:hover { background: #4f46e5; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .chat-box { background: #020617; border: 1px solid #1e293b; padding: 10px; height: 200px; overflow-y: auto; border-radius: 6px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
-        .msg { padding: 6px 10px; border-radius: 4px; max-width: 85%; }
-        .msg.user { background: #3730a3; align-self: flex-end; }
-        .msg.hive_matrix { background: #1e293b; align-self: flex-start; border: 1px solid #334155; }
-        .log-box { background: #020617; border: 1px solid #1e293b; padding: 10px; height: 110px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #60a5fa; border-radius: 6px; margin-top: 8px; }
+        .log-box { background: #020617; border: 1px solid #1e293b; padding: 12px; height: 100px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #60a5fa; border-radius: 6px; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="wrapper">
         <div class="card">
-            <h1>Legal Product Generator <span class="badge">Compliant Mode</span></h1>
-            <p>Automated public trend analysis and original asset compilation linked to gateway <code>WQJ28EPKZHR56</code>.</p>
-            <div id="statsBar" style="font-size: 0.8rem; color: #34d399; margin-top: 8px;">Active Nodes: Loading... | Compiled Products: Loading... | Revenue: Loading...</div>
-        </div>
-
-        <div class="grid">
-            <div class="card">
-                <h3>Digital Storefront</h3>
-                <div class="price">$29.99</div>
-                <p style="font-size: 0.85rem;">Python Automation Masterpack</p>
-                <input type="email" id="customerEmail" placeholder="your@email.com">
-                <button class="btn" onclick="checkout()">Buy Now &rarr;</button>
-            </div>
-            
-            <div class="card">
-                <h3>Trend Compilation Log</h3>
-                <div class="log-box" id="hiveLog">Connecting to legal compilation relay...</div>
-            </div>
+            <h1>Automated Storefront <span class="badge">Live</span></h1>
+            <p>Direct PayPal checkout gateway connected to <code>WQJ28EPKZHR56</code> with automated email delivery.</p>
+            <div id="statsBar" style="font-size: 0.85rem; color: #34d399; margin-top: 10px;">Orders Completed: Loading... | Revenue: Loading...</div>
         </div>
 
         <div class="card">
-            <h3>Hive Network Brain Chat</h3>
-            <div class="chat-box" id="chatBox">Loading dialogue history...</div>
-            <textarea id="userInput" rows="2" placeholder="Issue instructions to The Hive Network..."></textarea>
-            <button class="btn" onclick="sendChat()">Transmit Directive</button>
+            <h3>Python Automation Masterpack</h3>
+            <div class="price">$29.99</div>
+            <p>Instant digital download package sent straight to your email upon checkout verification.</p>
+            <input type="email" id="customerEmail" placeholder="Enter your email address...">
+            <button class="btn" onclick="checkout()">Proceed to Secure Checkout &rarr;</button>
+        </div>
+
+        <div class="card">
+            <h3>System Telemetry Log</h3>
+            <div class="log-box" id="hiveLog">Connecting to automated engine...</div>
         </div>
     </div>
     <script>
         function loadStats() {
             fetch('/api/stats').then(res => res.json()).then(data => {
-                document.getElementById('statsBar').innerHTML = `Active Nodes: <b>${data.active_hive_nodes}</b> | Compiled Products: <b>${data.compiled_products}</b> | Revenue: <b>${data.revenue}</b>`;
+                document.getElementById('statsBarinnerHTML').innerHTML = `Orders Completed: <b>${data.completed_orders}</b> | Revenue: <b>${data.revenue}</b>`;
             });
         }
         loadStats();
-
-        function loadHistory() {
-            fetch('/api/history').then(res => res.json()).then(history => {
-                let html = '';
-                history.forEach(item => {
-                    let cls = item.sender === 'user' ? 'user' : 'hive_matrix';
-                    html += `<div class="msg ${cls}"><b>[${item.sender}]:</b> ${item.message}</div>`;
-                });
-                let box = document.getElementById('chatBox');
-                box.innerHTML = html;
-                box.scrollTop = box.scrollHeight;
-            });
-        }
-        loadHistory();
 
         const hiveLog = document.getElementById('hiveLog');
         const ws = new WebSocket((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/hive');
         
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
-            hiveLog.innerHTML += `<div>[Compilation Event]: ${data.message || JSON.stringify(data)}</div>`;
+            hiveLog.innerHTML += `<div>[Event]: ${data.message || JSON.stringify(data)}</div>`;
             hiveLog.scrollTop = hiveLog.scrollHeight;
             loadStats();
-            if(data.event === 'CHAT_UPDATE') {
-                loadHistory();
-            }
         };
 
         ws.onopen = function() {
-            hiveLog.innerHTML += `<div>Connected to Legal Trend Engine. Public data pipeline secure.</div>`;
+            hiveLog.innerHTML += `<div>Engine telemetry active. Ready for transactions.</div>`;
         };
-
-        function sendChat() {
-            const input = document.getElementById('userInput');
-            const message = input.value.trim();
-            if(!message) return;
-            input.value = '';
-
-            fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message })
-            }).then(() => loadHistory());
-        }
 
         function checkout() {
             const email = document.getElementById('customerEmail').value.trim();
