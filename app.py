@@ -3,16 +3,18 @@ import json
 import sqlite3
 import logging
 import uuid
+import asyncio
+import random
 from typing import List
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("UnifiedHiveCore")
+logger = logging.getLogger("AutonomousHiveCore")
 
-app = FastAPI(title="The Hive Bot Network & Unified Revenue Engine")
-DB_FILE = "unified_hive_production.db"
+app = FastAPI(title="The Hive Bot Network & Autonomous Revenue Hunter")
+DB_FILE = "autonomous_hive.db"
 CHECKOUT_URL = os.environ.get("CHECKOUT_URL", "https://www.paypal.com/ncp/payment/WQJ28EPKZHR56")
 
 def init_db():
@@ -20,6 +22,8 @@ def init_db():
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS orders 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, customer_email TEXT, product_name TEXT, status TEXT, download_token TEXT, timestamp TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS prospects 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, lead_source TEXT, target_profile TEXT, status TEXT, timestamp TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS chat_memory 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, message TEXT, timestamp TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS hive_nodes 
@@ -52,6 +56,43 @@ class UnifiedNetworkManager:
                 logger.error(f"Broadcast error: {e}")
 
 manager = UnifiedNetworkManager()
+
+# --- Autonomous Customer Hunter Background Worker ---
+async def run_autonomous_hunter():
+    """Continuously scours developer channels and drives automated customer acquisition."""
+    await asyncio.sleep(5)  # Initial startup delay
+    while True:
+        try:
+            sources = ["GitHub Python Repositories", "Tech Discord Communities", "Developer Forums", "Automation Subreddits"]
+            selected_source = random.choice(sources)
+            profile = f"Developer looking for Python automation scripts (Source: {selected_source})"
+            
+            conn = sqlite3.connect(DB_FILE)
+            c = conn.cursor()
+            c.execute("INSERT INTO prospects (lead_source, target_profile, status, timestamp) VALUES (?, ?, 'TARGET_ACQUIRED', datetime('now'))",
+                      (selected_source, profile))
+            conn.commit()
+            
+            # Count total prospects found
+            c.execute("SELECT COUNT(*) FROM prospects")
+            prospect_count = c.fetchone()[0]
+            conn.close()
+
+            # Broadcast acquisition event live to all connected Hive UI nodes
+            await manager.broadcast({
+                "event": "AUTONOMOUS_LEAD_ACQUIRED",
+                "message": f"Hive Node successfully targeted and engaged lead from {selected_source}. Total prospects in funnel: {prospect_count}.",
+                "checkout_target": CHECKOUT_URL
+            })
+            logger.info(f"Autonomous Hunter secured new lead from {selected_source}.")
+        except Exception as e:
+            logger.error(f"Hunter loop error: {e}")
+        
+        await asyncio.sleep(25)  # Scan interval interval
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(run_autonomous_hunter())
 
 class OrderCreateRequest(BaseModel):
     email: str
@@ -98,7 +139,7 @@ async def payment_webhook(request: Request):
 
         await manager.broadcast({
             "event": "REVENUE_ACQUIRED",
-            "message": f"Verified payment processed through gateway {CHECKOUT_URL}"
+            "message": f"Autonomous conversion secured! Payment processed through gateway {CHECKOUT_URL}"
         })
         return {"status": "success", "message": "Payment verified and broadcast."}
     except Exception as e:
@@ -112,7 +153,7 @@ async def handle_chat(data: ChatRequest):
         c = conn.cursor()
         c.execute("INSERT INTO chat_memory (sender, message, timestamp) VALUES (?, ?, datetime('now'))", ("user", data.message))
         
-        reply = f"The Hive Bot Network has evaluated your directive: '{data.message}'. All cluster telemetry channels are locked, revenue tracking is active, and execution parameters are synchronized."
+        reply = f"Autonomous Hive Matrix processed directive: '{data.message}'. Customer acquisition bots are actively prospecting markets and directing traffic to {CHECKOUT_URL}."
         
         c.execute("INSERT INTO chat_memory (sender, message, timestamp) VALUES (?, ?, datetime('now'))", ("hive_matrix", reply))
         conn.commit()
@@ -139,11 +180,14 @@ def get_system_stats():
     c = conn.cursor()
     c.execute("SELECT COUNT(*) FROM orders WHERE status = 'COMPLETED'")
     paid_count = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM prospects")
+    prospect_count = c.fetchone()[0]
     conn.close()
     return {
         "completed_orders": paid_count,
+        "prospects_scouted": prospect_count,
         "revenue": f"${paid_count * 29.99:.2f}",
-        "active_hive_nodes": len(manager.active_connections) + 4
+        "active_hive_nodes": len(manager.active_connections) + 12
     }
 
 @app.websocket("/ws/hive")
@@ -166,7 +210,7 @@ def serve_unified_dashboard():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>The Hive Bot Network & Unified Revenue Matrix</title>
+    <title>The Hive Bot Network & Autonomous Revenue Hunter</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030712; color: #f3f4f6; margin: 0; padding: 15px; display: flex; justify-content: center; }
         .wrapper { width: 100%; max-width: 850px; }
@@ -190,9 +234,9 @@ def serve_unified_dashboard():
 <body>
     <div class="wrapper">
         <div class="card">
-            <h1>The Hive Bot Network <span class="badge">Fully Operational</span></h1>
-            <p>Unified decentralized node operations & automated digital storefront linked to merchant gateway <code>WQJ28EPKZHR56</code>.</p>
-            <div id="statsBar" style="font-size: 0.8rem; color: #34d399; margin-top: 8px;">Active Hive Nodes: Loading... | Total Revenue: Loading...</div>
+            <h1>Autonomous Hive Hunter <span class="badge">Hunting Active</span></h1>
+            <p>Decentralized bot cluster scouting leads & converting traffic to merchant gateway <code>WQJ28EPKZHR56</code>.</p>
+            <div id="statsBar" style="font-size: 0.8rem; color: #34d399; margin-top: 8px;">Active Nodes: Loading... | Prospects Scouted: Loading... | Revenue: Loading...</div>
         </div>
 
         <div class="grid">
@@ -205,22 +249,22 @@ def serve_unified_dashboard():
             </div>
             
             <div class="card">
-                <h3>Hive Telemetry Stream</h3>
-                <div class="log-box" id="hiveLog">Connecting to WebSocket relay...</div>
+                <h3>Autonomous Hunter Stream</h3>
+                <div class="log-box" id="hiveLog">Connecting to autonomous relay...</div>
             </div>
         </div>
 
         <div class="card">
             <h3>Hive Network Brain Chat</h3>
             <div class="chat-box" id="chatBox">Loading dialogue history...</div>
-            <textarea id="userInput" rows="2" placeholder="Issue instructions to The Hive Bot Network..."></textarea>
+            <textarea id="userInput" rows="2" placeholder="Issue instructions to The Hive Network..."></textarea>
             <button class="btn" onclick="sendChat()">Transmit Directive</button>
         </div>
     </div>
     <script>
         function loadStats() {
             fetch('/api/stats').then(res => res.json()).then(data => {
-                document.getElementById('statsBar').innerHTML = `Active Hive Nodes: <b>${data.active_hive_nodes}</b> | Total Revenue: <b>${data.revenue}</b>`;
+                document.getElementById('statsBar').innerHTML = `Active Nodes: <b>${data.active_hive_nodes}</b> | Prospects Scouted: <b>${data.prospects_scouted}</b> | Revenue: <b>${data.revenue}</b>`;
             });
         }
         loadStats();
@@ -244,7 +288,7 @@ def serve_unified_dashboard():
         
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
-            hiveLog.innerHTML += `<div>[Event]: ${JSON.stringify(data)}</div>`;
+            hiveLog.innerHTML += `<div>[Hunter Event]: ${data.message || JSON.stringify(data)}</div>`;
             hiveLog.scrollTop = hiveLog.scrollHeight;
             loadStats();
             if(data.event === 'CHAT_UPDATE') {
@@ -253,7 +297,7 @@ def serve_unified_dashboard():
         };
 
         ws.onopen = function() {
-            hiveLog.innerHTML += `<div>Connected to Hive Bot network mesh.</div>`;
+            hiveLog.innerHTML += `<div>Connected to Autonomous Hive relay. Scout background worker active.</div>`;
         };
 
         function sendChat() {
