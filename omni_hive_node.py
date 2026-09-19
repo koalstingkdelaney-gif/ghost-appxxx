@@ -5,7 +5,6 @@ import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 
-# Configuration
 PORT = int(os.environ.get("PORT", 8080))
 TOTAL_BOTS = 600
 
@@ -14,19 +13,17 @@ class HiveMindCore:
         self.active_bots = TOTAL_BOTS
         self.status = "Operational"
         self.memory_log = ["Omni-Matrix Hive initialized with 600 autonomous nodes."]
-        # Start background hive synchronization loop
         self.background_thread = threading.Thread(target=self._hive_background_loop, daemon=True)
         self.background_thread.start()
 
     def _hive_background_loop(self):
         while True:
-            # Periodic background maintenance for the 600 bots
             time.sleep(30)
             if len(self.memory_log) > 50:
                 self.memory_log = self.memory_log[-50:]
 
     def process_chat(self, user_message):
-        response = f"Hive-Mind [600 Active Bots]: Received your command -> '{user_message}'. Systems synchronized and operational."
+        response = f"Hive-Mind [600 Active Bots]: Received your command -> '{user_message}'. Systems synchronized."
         self.memory_log.append(f"User: {user_message} | Hive: Processed across {self.active_bots} nodes.")
         return response
 
@@ -83,9 +80,7 @@ class HiveWebHandler(BaseHTTPRequestHandler):
                     if(!msg) return;
                     fetch('/chat?msg=' + encodeURIComponent(msg))
                         .then(res => res.text())
-                        .then(data => {{
-                            document.getElementById('output').innerText = data;
-                        }});
+                        .then(data => {{ document.getElementById('output').innerText = data; }});
                 }}
             </script>
         </body>
@@ -100,7 +95,7 @@ class HiveWebHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/plain")
         self.end_headers()
-        self.wfile.write(text.encode("utf-8"))
+        self.wfile.write(text.encode("text/plain"))
 
 def run_server():
     server_address = ('0.0.0.0', PORT)
